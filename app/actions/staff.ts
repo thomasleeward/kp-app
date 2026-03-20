@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendStepCompleteEmail, sendLeadershipUnlockedEmail } from '@/lib/email'
+import { syncStepCompletionToPC } from '@/lib/planning-center'
 
 async function requireEditor() {
   const supabase = await createClient()
@@ -52,6 +53,21 @@ export async function markDiscipleshipStepComplete(memberId: string, stepId: str
     }
   }
 
+  // Write-back to Planning Center if the member has a linked PC profile
+  const { data: memberProfile } = await supabase
+    .from('profiles')
+    .select('planning_center_id')
+    .eq('id', memberId)
+    .single()
+
+  if (memberProfile?.planning_center_id && step?.name) {
+    try {
+      await syncStepCompletionToPC(memberProfile.planning_center_id, step.name, 'discipleship')
+    } catch (e) {
+      console.error('PC sync failed (non-blocking):', e)
+    }
+  }
+
   revalidatePath(`/staff/members/${memberId}`)
   revalidatePath('/staff')
 }
@@ -60,7 +76,7 @@ export async function markLeadershipStepComplete(memberId: string, stepId: strin
   const { supabase, staffUserId } = await requireEditor()
 
   const [{ data: step }, { data: member }, { data: staffProfile }] = await Promise.all([
-    supabase.from('leadership_steps').select('name').eq('id', stepId).single(),
+    supabase.from('leadership_steps').select('name, level_name').eq('id', stepId).single(),
     supabase.from('profiles').select('full_name, email').eq('id', memberId).single(),
     supabase.from('profiles').select('full_name').eq('id', staffUserId).single(),
   ])
@@ -83,6 +99,25 @@ export async function markLeadershipStepComplete(memberId: string, stepId: strin
       )
     } catch (e) {
       console.error('Email failed (non-blocking):', e)
+    }
+  }
+
+  // Write-back to Planning Center
+  const { data: memberProfile } = await supabase
+    .from('profiles')
+    .select('planning_center_id')
+    .eq('id', memberId)
+    .single()
+
+  if (memberProfile?.planning_center_id && step?.name && step?.level_name) {
+    try {
+      await syncStepCompletionToPC(
+        memberProfile.planning_center_id,
+        `${step.level_name}: ${step.name}`,
+        'leadership'
+      )
+    } catch (e) {
+      console.error('PC sync failed (non-blocking):', e)
     }
   }
 
