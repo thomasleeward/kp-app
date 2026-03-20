@@ -51,8 +51,8 @@ const LEAD_FIELD_ID = '1034012'
 
 // Map: PC option ID → step name (matches discipleship_steps.name in DB)
 const DISC_OPTION_TO_NAME: Record<string, string> = {
-  '10623307': 'Attended Sunday Service',
-  '10623308': 'Completed One-2-One',
+  '10623307': 'Attend Sunday Service',
+  '10623308': 'Complete One-2-One',
   '10623309': 'Biblical Foundations Class',
   '10623310': 'Growth Track',
   '10623311': 'Join the Go Team',
@@ -64,7 +64,7 @@ const DISC_OPTION_TO_NAME: Record<string, string> = {
 const LEAD_OPTION_TO_NAME: Record<string, string> = {
   '10623671': 'Member: Join the Go Team',
   '10623672': 'Member: Discipleship Classes',
-  '10623673': 'Member: Community & One-on-One with Leader',
+  '10623673': 'Member: Community & One-on-One with a Leader',
   '10623674': 'Member: Shift Leader or Apprentice Role',
   '10623675': 'Leader: F.A.I.T.H. & Leading Others',
   '10623676': 'Leader: Discipleship Classes',
