@@ -42,49 +42,56 @@ export interface PcPerson {
   email: string | null
 }
 
-// ─── Custom field IDs ─────────────────────────────────────────────────────────
+// ─── Option mappings ──────────────────────────────────────────────────────────
+// pcLabel: exact text stored as value in PC FieldDatum (must match PC option label)
+// dbName:  matches discipleship_steps.name or "${level_name}: ${name}" in DB
+
+interface OptionMap {
+  pcLabel: string
+  dbName: string
+}
 
 const DISC_FIELD_ID = '1033964'
 const LEAD_FIELD_ID = '1034012'
 
-// Map: PC option ID → DB step name (matches discipleship_steps.name)
-const DISC_OPTION_TO_NAME: Record<string, string> = {
-  '10623307': 'Attend Sunday Service',
-  '10623308': 'Complete One-2-One',
-  '10623309': 'Biblical Foundations Class',
-  '10623310': 'Growth Track',
-  '10623311': 'Join the Go Team',
-  '10623312': 'Discipleship Journey Class',
-  '10623313': 'Join a Life Group',
+const DISC_OPTIONS: Record<string, OptionMap> = {
+  '10623307': { pcLabel: 'Attended Sunday Service',    dbName: 'Attend Sunday Service' },
+  '10623308': { pcLabel: 'Completed One-2-One',        dbName: 'Complete One-2-One' },
+  '10623309': { pcLabel: 'Biblical Foundations Class', dbName: 'Biblical Foundations Class' },
+  '10623310': { pcLabel: 'Growth Track',               dbName: 'Growth Track' },
+  '10623311': { pcLabel: 'Join the Go Team',           dbName: 'Join the Go Team' },
+  '10623312': { pcLabel: 'Discipleship Journey Class', dbName: 'Discipleship Journey Class' },
+  '10623313': { pcLabel: 'Join a Life Group',          dbName: 'Join a Life Group' },
 }
 
-// Map: PC option ID → constructed name matching "${level_name}: ${name}" in DB
-const LEAD_OPTION_TO_NAME: Record<string, string> = {
-  '10623671': 'Member: Join the Go Team',
-  '10623672': 'Member: Discipleship Classes',
-  '10623673': 'Member: Community & One-on-One with a Leader',
-  '10623674': 'Member: Shift Leader or Apprentice Role',
-  '10623675': 'Leader: F.A.I.T.H. & Leading Others',
-  '10623676': 'Leader: Discipleship Classes',
-  '10623677': 'Leader: Leaders Community & One-on-One with Coach',
-  '10623678': 'Leader: Assisting as a Coach',
-  '10623679': 'Coach: Leader of Leaders',
-  '10623680': 'Coach: EQUIP',
-  '10623681': 'Coach: Coaches Community & One-on-One with Ministry Leader',
-  '10623682': 'Coach: Assisting as a Ministry Leader',
-  '10623683': 'Ministry Leader: Organizational Leader Role',
-  '10623684': 'Ministry Leader: Leadership 215',
-  '10623685': 'Ministry Leader: One-on-One with Staff or Pastor',
-  '10623686': 'Ministry Leader: Staff Invitation or Role Continuation',
+const LEAD_OPTIONS: Record<string, OptionMap> = {
+  '10623671': { pcLabel: 'Member: Join the Go Team',                                  dbName: 'Member: Join the Go Team' },
+  '10623672': { pcLabel: 'Member: Discipleship Classes',                              dbName: 'Member: Discipleship Classes' },
+  '10623673': { pcLabel: 'Member: Community & One-on-One with Leader',                dbName: 'Member: Community & One-on-One with a Leader' },
+  '10623674': { pcLabel: 'Member: Shift Leader or Apprentice Role',                   dbName: 'Member: Shift Leader or Apprentice Role' },
+  '10623675': { pcLabel: 'Leader: F.A.I.T.H. & Leading Others',                      dbName: 'Leader: F.A.I.T.H. & Leading Others' },
+  '10623676': { pcLabel: 'Leader: Discipleship Classes',                              dbName: 'Leader: Discipleship Classes' },
+  '10623677': { pcLabel: 'Leader: Leaders Community & One-on-One with Coach',         dbName: 'Leader: Leaders Community & One-on-One with Coach' },
+  '10623678': { pcLabel: 'Leader: Assisting as a Coach',                              dbName: 'Leader: Assisting as a Coach' },
+  '10623679': { pcLabel: 'Coach: Leader of Leaders',                                  dbName: 'Coach: Leader of Leaders' },
+  '10623680': { pcLabel: 'Coach: EQUIP',                                              dbName: 'Coach: EQUIP' },
+  '10623681': { pcLabel: 'Coach: Coaches Community & One-on-One with Ministry Leader', dbName: 'Coach: Coaches Community & One-on-One with Ministry Leader' },
+  '10623682': { pcLabel: 'Coach: Assisting as a Ministry Leader',                     dbName: 'Coach: Assisting as a Ministry Leader' },
+  '10623683': { pcLabel: 'Ministry Leader: Organizational Leader Role',               dbName: 'Ministry Leader: Organizational Leader Role' },
+  '10623684': { pcLabel: 'Ministry Leader: Leadership 215',                           dbName: 'Ministry Leader: Leadership 215' },
+  '10623685': { pcLabel: 'Ministry Leader: One-on-One with Staff or Pastor',          dbName: 'Ministry Leader: One-on-One with Staff or Pastor' },
+  '10623686': { pcLabel: 'Ministry Leader: Staff Invitation or Role Continuation',    dbName: 'Ministry Leader: Staff Invitation or Role Continuation' },
 }
 
-// Reverse maps: lowercase DB name → option ID
-const DISC_NAME_TO_OPTION = Object.fromEntries(
-  Object.entries(DISC_OPTION_TO_NAME).map(([id, name]) => [name.toLowerCase(), id])
-)
-const LEAD_NAME_TO_OPTION = Object.fromEntries(
-  Object.entries(LEAD_OPTION_TO_NAME).map(([id, name]) => [name.toLowerCase(), id])
-)
+function findOptionByDbName(options: Record<string, OptionMap>, dbName: string) {
+  const lower = dbName.trim().toLowerCase()
+  return Object.entries(options).find(([, m]) => m.dbName.toLowerCase() === lower) ?? null
+}
+
+function findOptionByPcLabel(options: Record<string, OptionMap>, pcLabel: string) {
+  const lower = pcLabel.trim().toLowerCase()
+  return Object.entries(options).find(([, m]) => m.pcLabel.toLowerCase() === lower) ?? null
+}
 
 // ─── People search ────────────────────────────────────────────────────────────
 
@@ -116,39 +123,22 @@ export async function searchPeopleByEmail(email: string): Promise<PcPerson[]> {
 }
 
 // ─── Field data helpers ───────────────────────────────────────────────────────
-// PC checkboxes: one FieldDatum record per checked option, linked via relationship
+// PC checkboxes: one FieldDatum per checked option, value = exact PC option label text
 
-async function getCheckedFieldData(
+async function getFieldData(
   personId: string,
   fieldDefinitionId: string
-): Promise<Array<{ datumId: string; optionId: string }>> {
+): Promise<Array<{ datumId: string; value: string }>> {
   try {
     const data = await pcGet(`/people/${personId}/field_data`)
     return (data.data ?? [])
       .filter(
-        (fd: any) =>
-          fd.relationships?.field_definition?.data?.id === fieldDefinitionId &&
-          fd.relationships?.field_option?.data?.id
+        (fd: any) => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
       )
-      .map((fd: any) => ({
-        datumId: fd.id,
-        optionId: fd.relationships.field_option.data.id as string,
-      }))
+      .map((fd: any) => ({ datumId: fd.id, value: fd.attributes?.value ?? '' }))
   } catch {
     return []
   }
-}
-
-async function checkOption(personId: string, fieldDefinitionId: string, optionId: string) {
-  await pcPost(`/people/${personId}/field_data`, {
-    data: {
-      type: 'FieldDatum',
-      relationships: {
-        field_definition: { data: { type: 'FieldDefinition', id: fieldDefinitionId } },
-        field_option: { data: { type: 'FieldOption', id: optionId } },
-      },
-    },
-  })
 }
 
 // ─── Import: get completed step names for a person ───────────────────────────
@@ -159,18 +149,21 @@ export async function importPersonProgress(pcPersonId: string): Promise<{
 }> {
   try {
     const [discData, leadData] = await Promise.all([
-      getCheckedFieldData(pcPersonId, DISC_FIELD_ID),
-      getCheckedFieldData(pcPersonId, LEAD_FIELD_ID),
+      getFieldData(pcPersonId, DISC_FIELD_ID),
+      getFieldData(pcPersonId, LEAD_FIELD_ID),
     ])
 
-    return {
-      completedDiscipleship: discData
-        .filter(d => DISC_OPTION_TO_NAME[d.optionId])
-        .map(d => DISC_OPTION_TO_NAME[d.optionId]),
-      completedLeadership: leadData
-        .filter(d => LEAD_OPTION_TO_NAME[d.optionId])
-        .map(d => LEAD_OPTION_TO_NAME[d.optionId]),
-    }
+    const completedDiscipleship = discData
+      .map(d => findOptionByPcLabel(DISC_OPTIONS, d.value))
+      .filter(Boolean)
+      .map(entry => entry![1].dbName)
+
+    const completedLeadership = leadData
+      .map(d => findOptionByPcLabel(LEAD_OPTIONS, d.value))
+      .filter(Boolean)
+      .map(entry => entry![1].dbName)
+
+    return { completedDiscipleship, completedLeadership }
   } catch (e) {
     console.error('[PC] Import error:', e)
     return { completedDiscipleship: [], completedLeadership: [] }
@@ -185,15 +178,27 @@ export async function syncStepCompletionToPC(
   workflowType: 'discipleship' | 'leadership'
 ) {
   const fieldId = workflowType === 'discipleship' ? DISC_FIELD_ID : LEAD_FIELD_ID
-  const nameToOption = workflowType === 'discipleship' ? DISC_NAME_TO_OPTION : LEAD_NAME_TO_OPTION
+  const options = workflowType === 'discipleship' ? DISC_OPTIONS : LEAD_OPTIONS
 
-  const optionId = nameToOption[stepName.trim().toLowerCase()]
-  if (!optionId) return
+  const entry = findOptionByDbName(options, stepName)
+  if (!entry) {
+    console.error(`[PC] No option found for step: "${stepName}"`)
+    return
+  }
+  const pcLabel = entry[1].pcLabel
 
-  const checked = await getCheckedFieldData(pcPersonId, fieldId)
-  if (checked.some(d => d.optionId === optionId)) return // already checked
+  const existing = await getFieldData(pcPersonId, fieldId)
+  if (existing.some(d => d.value.toLowerCase() === pcLabel.toLowerCase())) return // already checked
 
-  await checkOption(pcPersonId, fieldId, optionId)
+  await pcPost(`/people/${pcPersonId}/field_data`, {
+    data: {
+      type: 'FieldDatum',
+      attributes: { value: pcLabel },
+      relationships: {
+        field_definition: { data: { type: 'FieldDefinition', id: fieldId } },
+      },
+    },
+  })
 }
 
 export async function unsyncStepFromPC(
@@ -202,13 +207,14 @@ export async function unsyncStepFromPC(
   workflowType: 'discipleship' | 'leadership'
 ) {
   const fieldId = workflowType === 'discipleship' ? DISC_FIELD_ID : LEAD_FIELD_ID
-  const nameToOption = workflowType === 'discipleship' ? DISC_NAME_TO_OPTION : LEAD_NAME_TO_OPTION
+  const options = workflowType === 'discipleship' ? DISC_OPTIONS : LEAD_OPTIONS
 
-  const optionId = nameToOption[stepName.trim().toLowerCase()]
-  if (!optionId) return
+  const entry = findOptionByDbName(options, stepName)
+  if (!entry) return
+  const pcLabel = entry[1].pcLabel
 
-  const checked = await getCheckedFieldData(pcPersonId, fieldId)
-  const datum = checked.find(d => d.optionId === optionId)
+  const existing = await getFieldData(pcPersonId, fieldId)
+  const datum = existing.find(d => d.value.toLowerCase() === pcLabel.toLowerCase())
   if (!datum) return
 
   await pcDelete(`/people/${pcPersonId}/field_data/${datum.datumId}`)
