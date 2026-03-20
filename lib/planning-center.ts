@@ -26,14 +26,12 @@ async function pcPost(path: string, body: object) {
   return res.json()
 }
 
-async function pcPatch(path: string, body: object) {
+async function pcDelete(path: string) {
   const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'PATCH',
+    method: 'DELETE',
     headers: getHeaders(),
-    body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`PC API error ${res.status}: PATCH ${path}`)
-  return res.json()
+  if (!res.ok) throw new Error(`PC API error ${res.status}: DELETE ${path}`)
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,7 +47,7 @@ export interface PcPerson {
 const DISC_FIELD_ID = '1033964'
 const LEAD_FIELD_ID = '1034012'
 
-// Map: PC option ID → step name (matches discipleship_steps.name in DB)
+// Map: PC option ID → DB step name (matches discipleship_steps.name)
 const DISC_OPTION_TO_NAME: Record<string, string> = {
   '10623307': 'Attend Sunday Service',
   '10623308': 'Complete One-2-One',
@@ -60,7 +58,7 @@ const DISC_OPTION_TO_NAME: Record<string, string> = {
   '10623313': 'Join a Life Group',
 }
 
-// Map: PC option ID → step name (matches leadership_steps.name in DB)
+// Map: PC option ID → constructed name matching "${level_name}: ${name}" in DB
 const LEAD_OPTION_TO_NAME: Record<string, string> = {
   '10623671': 'Member: Join the Go Team',
   '10623672': 'Member: Discipleship Classes',
@@ -80,7 +78,7 @@ const LEAD_OPTION_TO_NAME: Record<string, string> = {
   '10623686': 'Ministry Leader: Staff Invitation or Role Continuation',
 }
 
-// Reverse maps: lowercase step name → option ID (for write-back)
+// Reverse maps: lowercase DB name → option ID
 const DISC_NAME_TO_OPTION = Object.fromEntries(
   Object.entries(DISC_OPTION_TO_NAME).map(([id, name]) => [name.toLowerCase(), id])
 )
@@ -118,47 +116,39 @@ export async function searchPeopleByEmail(email: string): Promise<PcPerson[]> {
 }
 
 // ─── Field data helpers ───────────────────────────────────────────────────────
+// PC checkboxes: one FieldDatum record per checked option, linked via relationship
 
-async function getPersonFieldDatum(personId: string, fieldDefinitionId: string) {
+async function getCheckedFieldData(
+  personId: string,
+  fieldDefinitionId: string
+): Promise<Array<{ datumId: string; optionId: string }>> {
   try {
     const data = await pcGet(`/people/${personId}/field_data`)
-    return (data.data ?? []).find(
-      (fd: any) => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
-    ) ?? null
+    return (data.data ?? [])
+      .filter(
+        (fd: any) =>
+          fd.relationships?.field_definition?.data?.id === fieldDefinitionId &&
+          fd.relationships?.field_option?.data?.id
+      )
+      .map((fd: any) => ({
+        datumId: fd.id,
+        optionId: fd.relationships.field_option.data.id as string,
+      }))
   } catch {
-    return null
+    return []
   }
 }
 
-async function upsertFieldDatum(
-  personId: string,
-  fieldDefinitionId: string,
-  optionIds: string[]
-) {
-  const value = optionIds.join(',')
-  const existing = await getPersonFieldDatum(personId, fieldDefinitionId)
-
-  if (existing) {
-    await pcPatch(`/people/${personId}/field_data/${existing.id}`, {
-      data: {
-        type: 'FieldDatum',
-        id: existing.id,
-        attributes: { value },
+async function checkOption(personId: string, fieldDefinitionId: string, optionId: string) {
+  await pcPost(`/people/${personId}/field_data`, {
+    data: {
+      type: 'FieldDatum',
+      relationships: {
+        field_definition: { data: { type: 'FieldDefinition', id: fieldDefinitionId } },
+        field_option: { data: { type: 'FieldOption', id: optionId } },
       },
-    })
-  } else {
-    await pcPost(`/people/${personId}/field_data`, {
-      data: {
-        type: 'FieldDatum',
-        attributes: { value },
-        relationships: {
-          field_definition: {
-            data: { type: 'FieldDefinition', id: fieldDefinitionId },
-          },
-        },
-      },
-    })
-  }
+    },
+  })
 }
 
 // ─── Import: get completed step names for a person ───────────────────────────
@@ -168,23 +158,18 @@ export async function importPersonProgress(pcPersonId: string): Promise<{
   completedLeadership: string[]
 }> {
   try {
-    const [discDatum, leadDatum] = await Promise.all([
-      getPersonFieldDatum(pcPersonId, DISC_FIELD_ID),
-      getPersonFieldDatum(pcPersonId, LEAD_FIELD_ID),
+    const [discData, leadData] = await Promise.all([
+      getCheckedFieldData(pcPersonId, DISC_FIELD_ID),
+      getCheckedFieldData(pcPersonId, LEAD_FIELD_ID),
     ])
 
-    function parseNames(datum: any, optionToName: Record<string, string>): string[] {
-      if (!datum?.attributes?.value) return []
-      return datum.attributes.value
-        .split(',')
-        .map((id: string) => id.trim())
-        .filter((id: string) => optionToName[id])
-        .map((id: string) => optionToName[id])
-    }
-
     return {
-      completedDiscipleship: parseNames(discDatum, DISC_OPTION_TO_NAME),
-      completedLeadership: parseNames(leadDatum, LEAD_OPTION_TO_NAME),
+      completedDiscipleship: discData
+        .filter(d => DISC_OPTION_TO_NAME[d.optionId])
+        .map(d => DISC_OPTION_TO_NAME[d.optionId]),
+      completedLeadership: leadData
+        .filter(d => LEAD_OPTION_TO_NAME[d.optionId])
+        .map(d => LEAD_OPTION_TO_NAME[d.optionId]),
     }
   } catch (e) {
     console.error('[PC] Import error:', e)
@@ -192,7 +177,7 @@ export async function importPersonProgress(pcPersonId: string): Promise<{
   }
 }
 
-// ─── Write-back: check off / uncheck a step in the PC custom field ───────────
+// ─── Write-back: check / uncheck a step in the PC custom field ────────────────
 
 export async function syncStepCompletionToPC(
   pcPersonId: string,
@@ -203,16 +188,12 @@ export async function syncStepCompletionToPC(
   const nameToOption = workflowType === 'discipleship' ? DISC_NAME_TO_OPTION : LEAD_NAME_TO_OPTION
 
   const optionId = nameToOption[stepName.trim().toLowerCase()]
-  if (!optionId) return // step name not in PC field options
+  if (!optionId) return
 
-  const existing = await getPersonFieldDatum(pcPersonId, fieldId)
-  const currentIds: string[] = existing?.attributes?.value
-    ? existing.attributes.value.split(',').map((s: string) => s.trim()).filter(Boolean)
-    : []
+  const checked = await getCheckedFieldData(pcPersonId, fieldId)
+  if (checked.some(d => d.optionId === optionId)) return // already checked
 
-  if (currentIds.includes(optionId)) return // already checked
-
-  await upsertFieldDatum(pcPersonId, fieldId, [...currentIds, optionId])
+  await checkOption(pcPersonId, fieldId, optionId)
 }
 
 export async function unsyncStepFromPC(
@@ -226,13 +207,9 @@ export async function unsyncStepFromPC(
   const optionId = nameToOption[stepName.trim().toLowerCase()]
   if (!optionId) return
 
-  const existing = await getPersonFieldDatum(pcPersonId, fieldId)
-  if (!existing?.attributes?.value) return
+  const checked = await getCheckedFieldData(pcPersonId, fieldId)
+  const datum = checked.find(d => d.optionId === optionId)
+  if (!datum) return
 
-  const updatedIds = existing.attributes.value
-    .split(',')
-    .map((s: string) => s.trim())
-    .filter((id: string) => id && id !== optionId)
-
-  await upsertFieldDatum(pcPersonId, fieldId, updatedIds)
+  await pcDelete(`/people/${pcPersonId}/field_data/${datum.datumId}`)
 }
