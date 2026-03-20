@@ -192,7 +192,7 @@ export async function importPersonProgress(pcPersonId: string): Promise<{
   }
 }
 
-// ─── Write-back: check off a step in the PC custom field ─────────────────────
+// ─── Write-back: check off / uncheck a step in the PC custom field ───────────
 
 export async function syncStepCompletionToPC(
   pcPersonId: string,
@@ -213,4 +213,26 @@ export async function syncStepCompletionToPC(
   if (currentIds.includes(optionId)) return // already checked
 
   await upsertFieldDatum(pcPersonId, fieldId, [...currentIds, optionId])
+}
+
+export async function unsyncStepFromPC(
+  pcPersonId: string,
+  stepName: string,
+  workflowType: 'discipleship' | 'leadership'
+) {
+  const fieldId = workflowType === 'discipleship' ? DISC_FIELD_ID : LEAD_FIELD_ID
+  const nameToOption = workflowType === 'discipleship' ? DISC_NAME_TO_OPTION : LEAD_NAME_TO_OPTION
+
+  const optionId = nameToOption[stepName.trim().toLowerCase()]
+  if (!optionId) return
+
+  const existing = await getPersonFieldDatum(pcPersonId, fieldId)
+  if (!existing?.attributes?.value) return
+
+  const updatedIds = existing.attributes.value
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter((id: string) => id && id !== optionId)
+
+  await upsertFieldDatum(pcPersonId, fieldId, updatedIds)
 }

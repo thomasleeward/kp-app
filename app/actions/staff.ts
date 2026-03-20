@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendStepCompleteEmail, sendLeadershipUnlockedEmail } from '@/lib/email'
-import { syncStepCompletionToPC } from '@/lib/planning-center'
+import { syncStepCompletionToPC, unsyncStepFromPC } from '@/lib/planning-center'
 
 async function requireEditor() {
   const supabase = await createClient()
@@ -149,4 +149,62 @@ export async function unlockLeadershipTrack(memberId: string) {
 
   revalidatePath('/staff')
   revalidatePath(`/staff/members/${memberId}`)
+}
+
+export async function unmarkDiscipleshipStep(memberId: string, stepId: string) {
+  const { supabase } = await requireEditor()
+
+  const { data: step } = await supabase
+    .from('discipleship_steps').select('name').eq('id', stepId).single()
+
+  await supabase
+    .from('member_discipleship_progress')
+    .delete()
+    .eq('user_id', memberId)
+    .eq('step_id', stepId)
+
+  const { data: memberProfile } = await supabase
+    .from('profiles').select('planning_center_id').eq('id', memberId).single()
+
+  if (memberProfile?.planning_center_id && step?.name) {
+    try {
+      await unsyncStepFromPC(memberProfile.planning_center_id, step.name, 'discipleship')
+    } catch (e) {
+      console.error('PC unsync failed (non-blocking):', e)
+    }
+  }
+
+  revalidatePath(`/staff/members/${memberId}`)
+  revalidatePath('/staff')
+}
+
+export async function unmarkLeadershipStep(memberId: string, stepId: string) {
+  const { supabase } = await requireEditor()
+
+  const { data: step } = await supabase
+    .from('leadership_steps').select('name, level_name').eq('id', stepId).single()
+
+  await supabase
+    .from('member_leadership_progress')
+    .delete()
+    .eq('user_id', memberId)
+    .eq('step_id', stepId)
+
+  const { data: memberProfile } = await supabase
+    .from('profiles').select('planning_center_id').eq('id', memberId).single()
+
+  if (memberProfile?.planning_center_id && step?.name && step?.level_name) {
+    try {
+      await unsyncStepFromPC(
+        memberProfile.planning_center_id,
+        `${step.level_name}: ${step.name}`,
+        'leadership'
+      )
+    } catch (e) {
+      console.error('PC unsync failed (non-blocking):', e)
+    }
+  }
+
+  revalidatePath(`/staff/members/${memberId}`)
+  revalidatePath('/staff')
 }

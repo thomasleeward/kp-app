@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getDiscipleshipProgress, getLeadershipProgress } from '@/lib/services/progress'
 import StaffHeader from '../../components/StaffHeader'
 import MarkCompleteButton from './components/MarkCompleteButton'
+import UnmarkButton from './components/UnmarkButton'
 import UnlockButton from './components/UnlockButton'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
@@ -178,6 +179,9 @@ export default async function MemberDetailPage({
                           {!isComplete && !step.isLocked && canEdit && (
                             <MarkCompleteButton memberId={member.id} stepId={step.id} type="discipleship" />
                           )}
+                          {isComplete && canEdit && (
+                            <UnmarkButton memberId={member.id} stepId={step.id} type="discipleship" />
+                          )}
                         </div>
                       </div>
                     )
@@ -252,6 +256,9 @@ export default async function MemberDetailPage({
                               </div>
                               {!isComplete && !isLocked && canEdit && (
                                 <MarkCompleteButton memberId={member.id} stepId={step.id} type="leadership" />
+                              )}
+                              {isComplete && canEdit && (
+                                <UnmarkButton memberId={member.id} stepId={step.id} type="leadership" />
                               )}
                             </div>
                           </div>
