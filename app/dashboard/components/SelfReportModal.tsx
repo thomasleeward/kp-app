@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { selfReportSteps, dismissSelfReport } from '@/app/actions/progress'
+import { recordBaptism } from '@/app/actions/baptism'
 import { DiscipleshipStepWithProgress } from '@/lib/services/progress'
-import { X, ClipboardList } from 'lucide-react'
+import { X, ClipboardList, Droplets } from 'lucide-react'
 
 interface Props {
   userId: string
@@ -13,6 +14,8 @@ interface Props {
 export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
   const [open, setOpen] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [baptized, setBaptized] = useState<boolean | null>(null)
+  const [baptismDate, setBaptismDate] = useState('')
   const [saving, setSaving] = useState(false)
 
   if (!open) return null
@@ -28,6 +31,9 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
   async function handleSubmit() {
     setSaving(true)
     await selfReportSteps(userId, [...selected], [])
+    if (baptized && baptismDate) {
+      await recordBaptism(userId, baptismDate)
+    }
     setOpen(false)
   }
 
@@ -93,6 +99,46 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
               </div>
             </div>
           ))}
+
+          {/* Baptism */}
+          <div className="border-t border-gray-100 pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Droplets size={15} className="text-blue-400" />
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Baptism</p>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">Have you been baptized?</p>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setBaptized(true)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  baptized === true ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => { setBaptized(false); setBaptismDate('') }}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  baptized === false ? 'bg-gray-200 text-gray-700' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                No
+              </button>
+            </div>
+            {baptized && (
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">Baptism date</label>
+                <input
+                  type="date"
+                  value={baptismDate}
+                  onChange={e => setBaptismDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
