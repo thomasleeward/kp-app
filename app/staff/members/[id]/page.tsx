@@ -7,7 +7,7 @@ import UnmarkButton from './components/UnmarkButton'
 import UnlockButton from './components/UnlockButton'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
-  Mail, Phone, User
+  Mail, Phone, User, Droplets
 } from 'lucide-react'
 
 const STAGE_ORDER = ['identification', 'instruction', 'impartation', 'internship']
@@ -48,7 +48,7 @@ export default async function MemberDetailPage({
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at')
+      .select('id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date')
       .eq('id', memberId)
       .single(),
     getDiscipleshipProgress(memberId),
@@ -115,6 +115,12 @@ export default async function MemberDetailPage({
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Phone size={13} className="text-gray-300" />
                     {member.phone}
+                  </div>
+                )}
+                {member.baptism_date && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Droplets size={13} className="text-gray-300" />
+                    Baptized {new Date(member.baptism_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </div>
                 )}
               </div>
