@@ -8,14 +8,17 @@ const sourceBadge: Record<CompletionSource, { label: string; className: string }
   pc_synced:       { label: 'Synced',        className: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' },
 }
 
+const LIFE_GROUP_NAME = 'Join a Life Group'
+
 interface Props {
   steps: DiscipleshipStepWithProgress[]
 }
 
 export default function DiscipleshipPath({ steps }: Props) {
+  const filtered = steps.filter(s => s.name !== LIFE_GROUP_NAME)
   const stepNameById = Object.fromEntries(steps.map(s => [s.id, s.name]))
 
-  const phases = steps.reduce<Record<number, { name: string; steps: DiscipleshipStepWithProgress[] }>>(
+  const phases = filtered.reduce<Record<number, { name: string; steps: DiscipleshipStepWithProgress[] }>>(
     (acc, step) => {
       if (!acc[step.phase]) acc[step.phase] = { name: step.phase_name, steps: [] }
       acc[step.phase].steps.push(step)
@@ -24,8 +27,8 @@ export default function DiscipleshipPath({ steps }: Props) {
     {}
   )
 
-  const completedCount = steps.filter(s => s.completion).length
-  const totalCount = steps.length
+  const completedCount = filtered.filter(s => s.completion).length
+  const totalCount = filtered.length
   const percent = Math.round((completedCount / totalCount) * 100)
 
   return (

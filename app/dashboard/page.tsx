@@ -4,6 +4,7 @@ import { getDiscipleshipProgress, getLeadershipProgress } from '@/lib/services/p
 import Header from './components/Header'
 import DiscipleshipPath from './components/DiscipleshipPath'
 import LeadershipCard from './components/LeadershipCard'
+import LifeGroupCard from './components/LifeGroupCard'
 import SelfReportModal from './components/SelfReportModal'
 
 export default async function DashboardPage() {
@@ -22,19 +23,29 @@ export default async function DashboardPage() {
     getLeadershipProgress(user.id),
   ])
 
+  const lifeGroupStep = discipleshipProgress.find(s => s.name === 'Join a Life Group')
   const hasAnyProgress = discipleshipProgress.some(s => s.completion)
 
   return (
     <div className="min-h-full flex flex-col bg-gray-50">
       <Header name={profile?.full_name ?? ''} />
 
-      <main className="flex-1 px-4 py-8 max-w-2xl mx-auto w-full space-y-4">
+      <main className="flex-1 px-4 py-8 max-w-5xl mx-auto w-full space-y-4">
         <div className="mb-2">
           <h1 className="text-xl font-bold text-gray-900">Your Journey</h1>
           <p className="text-sm text-gray-400 mt-0.5">Track your discipleship and leadership progress</p>
         </div>
 
-        <DiscipleshipPath steps={discipleshipProgress} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          <div className="lg:col-span-2">
+            <DiscipleshipPath steps={discipleshipProgress} />
+          </div>
+          {lifeGroupStep && (
+            <div className="lg:col-span-1">
+              <LifeGroupCard userId={user.id} step={lifeGroupStep} />
+            </div>
+          )}
+        </div>
 
         <LeadershipCard
           userId={user.id}
