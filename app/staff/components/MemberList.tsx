@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, ChevronRight } from 'lucide-react'
+import { Search, ChevronRight, Droplets, Users } from 'lucide-react'
 
 export interface MemberRow {
   id: string
@@ -12,6 +12,8 @@ export interface MemberRow {
   discTotal: number
   leadershipStatus: 'none' | 'interested' | 'unlocked'
   currentPhase: string
+  inLifeGroup: boolean
+  baptized: boolean
 }
 
 export default function MemberList({ members }: { members: MemberRow[] }) {
@@ -65,11 +67,20 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
                     {leadershipBadge[member.leadershipStatus].label}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                   <span className="text-xs text-gray-400">{member.currentPhase}</span>
                   <span className="text-xs text-gray-300">·</span>
                   <span className="text-xs text-gray-400">
                     {member.discCompleted}/{member.discTotal} steps
+                  </span>
+                  <span className="text-xs text-gray-300">·</span>
+                  <span className={`flex items-center gap-1 text-xs ${member.inLifeGroup ? 'text-green-600' : 'text-gray-300'}`}>
+                    <Users size={11} />
+                    Life Group
+                  </span>
+                  <span className={`flex items-center gap-1 text-xs ${member.baptized ? 'text-blue-500' : 'text-gray-300'}`}>
+                    <Droplets size={11} />
+                    Baptized
                   </span>
                 </div>
               </div>

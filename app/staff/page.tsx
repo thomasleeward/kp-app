@@ -32,11 +32,11 @@ export default async function StaffPage() {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, leadership_interest_at, leadership_track_unlocked')
+      .select('id, full_name, email, leadership_interest_at, leadership_track_unlocked, baptism_date')
       .order('full_name'),
     supabase
       .from('discipleship_steps')
-      .select('id, phase, phase_name, step_order')
+      .select('id, name, phase, phase_name, step_order')
       .order('phase')
       .order('step_order'),
     supabase
@@ -47,6 +47,7 @@ export default async function StaffPage() {
   const allProfiles = profiles ?? []
   const allSteps = discSteps ?? []
   const allProgress = discProgress ?? []
+  const lifeGroupStepId = allSteps.find(s => s.name === 'Join a Life Group')?.id
 
   // Compute per-member stats
   const memberRows: MemberRow[] = allProfiles.map(profile => {
@@ -80,6 +81,8 @@ export default async function StaffPage() {
         : profile.leadership_interest_at
           ? 'interested'
           : 'none',
+      inLifeGroup: lifeGroupStepId ? completedSet.has(lifeGroupStepId) : false,
+      baptized: !!profile.baptism_date,
     }
   })
 
