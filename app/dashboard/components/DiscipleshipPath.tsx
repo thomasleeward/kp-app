@@ -1,7 +1,6 @@
 import { CheckCircle2, Circle, Lock, AlertTriangle, Check } from 'lucide-react'
 import { DiscipleshipStepWithProgress, CompletionSource } from '@/lib/services/progress'
 import StepActionButton from './StepActionButton'
-import DiscipleshipRing from './DiscipleshipRing'
 
 const sourceBadge: Record<CompletionSource, { label: string; className: string }> = {
   self_reported:   { label: 'Self-reported', className: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
@@ -32,21 +31,27 @@ export default function DiscipleshipPath({ steps }: Props) {
   const totalCount = filtered.length
   const percent = Math.round((completedCount / totalCount) * 100)
 
-  const phaseList = Object.entries(phases).map(([num, phase]) => ({
-    num: Number(num),
-    isComplete: phase.steps.every(s => s.completion),
-    isStarted: phase.steps.some(s => s.completion),
-  }))
-
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Card header */}
-      <div className="px-6 pt-6 pb-2">
-        <h2 className="text-base font-semibold text-gray-900 text-center mb-1">Discipleship Path</h2>
-        <DiscipleshipRing percent={percent} phases={phaseList} />
-        <p className="text-xs text-gray-400 text-center mt-1 mb-4">
-          {completedCount} of {totalCount} steps complete
-        </p>
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Discipleship Path</h2>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {completedCount} of {totalCount} steps complete
+            </p>
+          </div>
+          <span className="text-2xl font-bold text-blue-600">{percent}%</span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full bg-gray-100 rounded-full h-1.5">
+          <div
+            className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
       </div>
 
       {/* Phases */}
