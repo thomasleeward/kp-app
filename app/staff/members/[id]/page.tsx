@@ -6,6 +6,7 @@ import MarkCompleteButton from './components/MarkCompleteButton'
 import UnmarkButton from './components/UnmarkButton'
 import UnlockButton from './components/UnlockButton'
 import DeleteMemberButton from './components/DeleteMemberButton'
+import LinkToPcModal from './components/LinkToPcModal'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
   Mail, Phone, User, Droplets
@@ -92,11 +93,14 @@ export default async function MemberDetailPage({
 
         {/* PC not linked banner */}
         {member.pc_link_status !== 'linked' && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5 flex items-center gap-3">
-            <AlertTriangle size={16} className="text-amber-500 shrink-0" />
-            <p className="text-sm text-amber-700">
-              Not linked to Planning Center — progress won't sync automatically.
-            </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+              <p className="text-sm text-amber-700">
+                Not linked to Planning Center — progress won't sync automatically.
+              </p>
+            </div>
+            <LinkToPcModal memberId={member.id} memberName={member.full_name} memberEmail={member.email} />
           </div>
         )}
 

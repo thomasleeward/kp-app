@@ -105,6 +105,60 @@ function findOptionByPcLabel(options: Record<string, OptionMap>, pcLabel: string
 
 // ─── People search ────────────────────────────────────────────────────────────
 
+export async function searchPeopleByName(name: string): Promise<PcPerson[]> {
+  try {
+    const encoded = encodeURIComponent(name.trim())
+    const data = await pcGet(
+      `/people?where[search_name_or_email]=${encoded}&include=emails&per_page=10`
+    )
+    if (!data.data?.length) return []
+
+    const included = data.included ?? []
+
+    return data.data.map((person: any) => {
+      const emailIds: string[] = (person.relationships?.emails?.data ?? []).map((e: any) => e.id)
+      const emailItems = included.filter(
+        (i: any) => i.type === 'Email' && emailIds.includes(i.id)
+      )
+      const primaryEmail =
+        emailItems.find((e: any) => e.attributes.primary)?.attributes?.address ??
+        emailItems[0]?.attributes?.address ??
+        null
+      return { id: person.id, name: person.attributes.name, email: primaryEmail }
+    })
+  } catch (e) {
+    console.error('[PC] Search error:', e)
+    return []
+  }
+}
+
+export async function createPcPerson(fullName: string, email: string | null): Promise<string> {
+  const nameParts = fullName.trim().split(' ')
+  const firstName = nameParts[0]
+  const lastName = nameParts.slice(1).join(' ') || ''
+
+  const body: any = {
+    data: {
+      type: 'Person',
+      attributes: { first_name: firstName, last_name: lastName },
+    },
+  }
+
+  const data = await pcPost('/people', body)
+  const personId = data.data.id
+
+  if (email) {
+    await pcPost(`/people/${personId}/emails`, {
+      data: {
+        type: 'Email',
+        attributes: { address: email, location: 'Home', primary: true },
+      },
+    })
+  }
+
+  return personId
+}
+
 export async function searchPeopleByEmail(email: string): Promise<PcPerson[]> {
   try {
     const encoded = encodeURIComponent(email.trim().toLowerCase())

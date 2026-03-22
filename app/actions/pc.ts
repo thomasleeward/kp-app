@@ -1,11 +1,90 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { searchPeopleByEmail, importPersonProgress, importBaptismFromPC } from '@/lib/planning-center'
+import {
+  searchPeopleByEmail, searchPeopleByName, createPcPerson,
+  importPersonProgress, importBaptismFromPC,
+  syncStepCompletionToPC, syncBaptismToPC,
+} from '@/lib/planning-center'
 import { revalidatePath } from 'next/cache'
 
 export async function searchPcByEmail(email: string): Promise<import('@/lib/planning-center').PcPerson[]> {
   return await searchPeopleByEmail(email)
+}
+
+export async function searchPcByName(name: string): Promise<import('@/lib/planning-center').PcPerson[]> {
+  return await searchPeopleByName(name)
+}
+
+// Push all existing app progress for a member to PC, then mark as linked
+async function pushProgressToPC(supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>, userId: string, pcPersonId: string) {
+  const [{ data: discProgress }, { data: leadProgress }, { data: profile }] = await Promise.all([
+    supabase
+      .from('member_discipleship_progress')
+      .select('step_id, discipleship_steps(name)')
+      .eq('user_id', userId),
+    supabase
+      .from('member_leadership_progress')
+      .select('step_id, leadership_steps(name, level_name)')
+      .eq('user_id', userId),
+    supabase.from('profiles').select('baptism_date').eq('id', userId).single(),
+  ])
+
+  for (const row of discProgress ?? []) {
+    const name = (row.discipleship_steps as any)?.name
+    if (name) {
+      try { await syncStepCompletionToPC(pcPersonId, name, 'discipleship') } catch {}
+    }
+  }
+
+  for (const row of leadProgress ?? []) {
+    const step = row.leadership_steps as any
+    if (step?.name && step?.level_name) {
+      try { await syncStepCompletionToPC(pcPersonId, `${step.level_name}: ${step.name}`, 'leadership') } catch {}
+    }
+  }
+
+  if (profile?.baptism_date) {
+    try { await syncBaptismToPC(pcPersonId, profile.baptism_date) } catch {}
+  }
+}
+
+export async function linkMemberToPC(userId: string, pcPersonId: string) {
+  const supabase = await createClient()
+
+  await supabase
+    .from('profiles')
+    .update({ planning_center_id: pcPersonId, pc_link_status: 'linked' })
+    .eq('id', userId)
+
+  await pushProgressToPC(supabase, userId, pcPersonId)
+
+  revalidatePath(`/staff/members/${userId}`)
+  revalidatePath('/staff')
+}
+
+export async function createAndLinkPcProfile(userId: string) {
+  const supabase = await createClient()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, email')
+    .eq('id', userId)
+    .single()
+
+  if (!profile) throw new Error('Member not found')
+
+  const pcPersonId = await createPcPerson(profile.full_name, profile.email)
+
+  await supabase
+    .from('profiles')
+    .update({ planning_center_id: pcPersonId, pc_link_status: 'linked' })
+    .eq('id', userId)
+
+  await pushProgressToPC(supabase, userId, pcPersonId)
+
+  revalidatePath(`/staff/members/${userId}`)
+  revalidatePath('/staff')
 }
 
 export async function linkAndImportPcProfile(userId: string, pcPersonId: string) {
