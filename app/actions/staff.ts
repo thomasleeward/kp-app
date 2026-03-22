@@ -7,7 +7,6 @@ import { syncStepCompletionToPC, unsyncStepFromPC } from '@/lib/planning-center'
 
 // When "Join the Go Team" is completed on discipleship, auto-mark the matching leadership step
 const GO_TEAM_DISC_NAME = 'Join the Go Team'
-const GO_TEAM_LEAD_NAME = 'Member: Join the Go Team'
 
 export async function autoMarkGoTeamLeadership(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -21,7 +20,8 @@ export async function autoMarkGoTeamLeadership(
   const { data: leadStep } = await supabase
     .from('leadership_steps')
     .select('id')
-    .eq('name', GO_TEAM_LEAD_NAME)
+    .eq('name', 'Join the Go Team')
+    .eq('level_name', 'Member')
     .single()
 
   if (!leadStep) return
