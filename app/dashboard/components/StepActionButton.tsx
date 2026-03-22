@@ -18,7 +18,7 @@ export default function StepActionButton({ stepName, action }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="mt-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        className="text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-0.5 rounded-full transition-colors shrink-0"
       >
         {action.action_button_label}
       </button>
@@ -37,7 +37,7 @@ export default function StepActionButton({ stepName, action }: Props) {
             <h3 className="font-semibold text-gray-900 mb-3">{stepName}</h3>
 
             {action.action_info && (
-              <p className="text-sm text-gray-600 leading-relaxed mb-5">
+              <p className="text-sm text-gray-600 leading-relaxed mb-5 whitespace-pre-wrap">
                 {action.action_info}
               </p>
             )}

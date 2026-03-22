@@ -120,15 +120,15 @@ function StepRow({ step }: { step: DiscipleshipStepWithProgress }) {
             {isLocked && (
               <span className="text-xs text-gray-300">Requires previous step</span>
             )}
+            {!isComplete && !isLocked && (
+              <StepActionButton stepName={step.name} action={step} />
+            )}
           </div>
           {showFlag && (
             <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5">
               <AlertTriangle size={11} className="shrink-0" />
               <span>You should complete Growth Track — talk to your team leader</span>
             </div>
-          )}
-          {!isComplete && !isLocked && (
-            <StepActionButton stepName={step.name} action={step} />
           )}
         </div>
       </div>
