@@ -166,6 +166,26 @@ export async function syncBaptismToPC(pcPersonId: string, date: string) {
   ])
 }
 
+export async function importBaptismFromPC(pcPersonId: string): Promise<string | null> {
+  try {
+    const data = await pcGet(`/people/${pcPersonId}/field_data`)
+    const fields: any[] = data.data ?? []
+
+    const baptizedField = fields.find(
+      fd => fd.relationships?.field_definition?.data?.id === BAPTISM_BOOLEAN_FIELD_ID
+    )
+    if (baptizedField?.attributes?.value !== 'true') return null
+
+    const dateField = fields.find(
+      fd => fd.relationships?.field_definition?.data?.id === BAPTISM_DATE_FIELD_ID
+    )
+    return dateField?.attributes?.value ?? null
+  } catch (e) {
+    console.error('[PC] Baptism import error:', e)
+    return null
+  }
+}
+
 // ─── Field data helpers ───────────────────────────────────────────────────────
 // PC checkboxes: one FieldDatum per checked option, value = exact PC option label text
 

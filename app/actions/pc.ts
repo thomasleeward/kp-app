@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { searchPeopleByEmail, importPersonProgress } from '@/lib/planning-center'
+import { searchPeopleByEmail, importPersonProgress, importBaptismFromPC } from '@/lib/planning-center'
 import { revalidatePath } from 'next/cache'
 
 export async function searchPcByEmail(email: string): Promise<import('@/lib/planning-center').PcPerson[]> {
@@ -63,6 +63,15 @@ export async function linkAndImportPcProfile(userId: string, pcPersonId: string)
         .from('member_leadership_progress')
         .upsert(leadInserts, { onConflict: 'user_id,step_id' })
     }
+  }
+
+  // Import baptism date from PC if set
+  const baptismDate = await importBaptismFromPC(pcPersonId)
+  if (baptismDate) {
+    await supabase
+      .from('profiles')
+      .update({ baptism_date: baptismDate })
+      .eq('id', userId)
   }
 
   revalidatePath('/dashboard')
