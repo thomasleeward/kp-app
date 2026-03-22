@@ -1,9 +1,25 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendStepCompleteEmail, sendLeadershipUnlockedEmail } from '@/lib/email'
 import { syncStepCompletionToPC, unsyncStepFromPC } from '@/lib/planning-center'
+
+async function requireAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: staffRole } = await supabase
+    .from('staff_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  if (staffRole?.role !== 'admin') throw new Error('Admin only')
+
+  return { supabase }
+}
 
 async function requireEditor() {
   const supabase = await createClient()
@@ -175,6 +191,16 @@ export async function unmarkDiscipleshipStep(memberId: string, stepId: string) {
   }
 
   revalidatePath(`/staff/members/${memberId}`)
+  revalidatePath('/staff')
+}
+
+export async function deleteMemberProfile(memberId: string) {
+  await requireAdmin()
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.auth.admin.deleteUser(memberId)
+  if (error) throw new Error(`Failed to delete user: ${error.message}`)
+
   revalidatePath('/staff')
 }
 

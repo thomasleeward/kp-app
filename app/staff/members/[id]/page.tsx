@@ -5,6 +5,7 @@ import StaffHeader from '../../components/StaffHeader'
 import MarkCompleteButton from './components/MarkCompleteButton'
 import UnmarkButton from './components/UnmarkButton'
 import UnlockButton from './components/UnlockButton'
+import DeleteMemberButton from './components/DeleteMemberButton'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
   Mail, Phone, User, Droplets
@@ -276,6 +277,12 @@ export default async function MemberDetailPage({
             })}
           </div>
         </div>
+        {/* Danger zone */}
+        {staffRole.role === 'admin' && (
+          <div className="flex justify-end pt-2 pb-4">
+            <DeleteMemberButton memberId={member.id} memberName={member.full_name} />
+          </div>
+        )}
       </main>
     </div>
   )
