@@ -6,6 +6,8 @@ import { syncBaptismToPC } from '@/lib/planning-center'
 
 export async function recordBaptism(userId: string, date: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== userId) throw new Error('Unauthorized')
 
   await supabase
     .from('profiles')

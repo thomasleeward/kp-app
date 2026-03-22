@@ -11,6 +11,8 @@ export async function selfReportSteps(
   leadershipStepIds: string[]
 ) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== userId) throw new Error('Unauthorized')
 
   if (discipleshipStepIds.length > 0) {
     await supabase.from('member_discipleship_progress').insert(
@@ -92,6 +94,8 @@ export async function selfReportSteps(
 
 export async function dismissSelfReport(userId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== userId) throw new Error('Unauthorized')
   await supabase
     .from('profiles')
     .update({ self_report_seen_at: new Date().toISOString() })

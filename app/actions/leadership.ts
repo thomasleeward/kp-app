@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 
 export async function expressLeadershipInterest(userId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== userId) throw new Error('Unauthorized')
 
   await supabase
     .from('profiles')
