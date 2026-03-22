@@ -13,6 +13,8 @@ interface Props {
 }
 
 export default function DiscipleshipPath({ steps }: Props) {
+  const stepNameById = Object.fromEntries(steps.map(s => [s.id, s.name]))
+
   const phases = steps.reduce<Record<number, { name: string; steps: DiscipleshipStepWithProgress[] }>>(
     (acc, step) => {
       if (!acc[step.phase]) acc[step.phase] = { name: step.phase_name, steps: [] }
@@ -80,7 +82,7 @@ export default function DiscipleshipPath({ steps }: Props) {
               {/* Steps */}
               <div className="ml-10 space-y-2.5">
                 {phase.steps.map(step => (
-                  <StepRow key={step.id} step={step} />
+                  <StepRow key={step.id} step={step} stepNameById={stepNameById} />
                 ))}
               </div>
             </div>
@@ -91,7 +93,7 @@ export default function DiscipleshipPath({ steps }: Props) {
   )
 }
 
-function StepRow({ step }: { step: DiscipleshipStepWithProgress }) {
+function StepRow({ step, stepNameById }: { step: DiscipleshipStepWithProgress; stepNameById: Record<string, string> }) {
   const isComplete = !!step.completion
   const { isLocked, showFlag } = step
 
@@ -117,8 +119,10 @@ function StepRow({ step }: { step: DiscipleshipStepWithProgress }) {
                 {sourceBadge[step.completion.completion_source].label}
               </span>
             )}
-            {isLocked && (
-              <span className="text-xs text-gray-300">Requires previous step</span>
+            {isLocked && step.prerequisite_step_id && (
+              <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">
+                Requires {stepNameById[step.prerequisite_step_id] ?? 'previous step'}
+              </span>
             )}
             {!isComplete && !isLocked && (
               <StepActionButton stepName={step.name} action={step} />
