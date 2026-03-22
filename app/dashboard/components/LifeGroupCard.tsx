@@ -52,7 +52,7 @@ export default function LifeGroupCard({ userId, step }: Props) {
                 disabled={pending}
                 className="w-full bg-white text-blue-700 font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-blue-50 transition-colors disabled:opacity-70"
               >
-                {pending ? 'Saving…' : 'Yes, I'm in one'}
+                {pending ? 'Saving…' : "Yes, I'm in one"}
               </button>
 
               {step.action_cta_url && (
