@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { syncStepCompletionToPC } from '@/lib/planning-center'
+import { autoMarkGoTeamLeadership } from './staff'
 
 export async function selfReportSteps(
   userId: string,
@@ -19,6 +20,15 @@ export async function selfReportSteps(
         completion_source: 'self_reported',
       }))
     )
+
+    const { data: discStepNames } = await supabase
+      .from('discipleship_steps')
+      .select('name')
+      .in('id', discipleshipStepIds)
+
+    for (const step of discStepNames ?? []) {
+      await autoMarkGoTeamLeadership(supabase, userId, step.name, 'self_reported')
+    }
   }
 
   if (leadershipStepIds.length > 0) {

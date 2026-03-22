@@ -5,6 +5,36 @@ import { revalidatePath } from 'next/cache'
 import { sendStepCompleteEmail, sendLeadershipUnlockedEmail } from '@/lib/email'
 import { syncStepCompletionToPC, unsyncStepFromPC } from '@/lib/planning-center'
 
+// When "Join the Go Team" is completed on discipleship, auto-mark the matching leadership step
+const GO_TEAM_DISC_NAME = 'Join the Go Team'
+const GO_TEAM_LEAD_NAME = 'Member: Join the Go Team'
+
+export async function autoMarkGoTeamLeadership(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  memberId: string,
+  discStepName: string,
+  source: 'staff_confirmed' | 'self_reported' | 'pc_synced',
+  completedBy?: string
+) {
+  if (discStepName.toLowerCase() !== GO_TEAM_DISC_NAME.toLowerCase()) return
+
+  const { data: leadStep } = await supabase
+    .from('leadership_steps')
+    .select('id')
+    .eq('name', GO_TEAM_LEAD_NAME)
+    .single()
+
+  if (!leadStep) return
+
+  await supabase.from('member_leadership_progress').upsert({
+    user_id: memberId,
+    step_id: leadStep.id,
+    completion_source: source,
+    ...(completedBy ? { completed_by: completedBy } : {}),
+    completed_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,step_id' })
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -55,6 +85,10 @@ export async function markDiscipleshipStepComplete(memberId: string, stepId: str
     completed_by: staffUserId,
     completed_at: new Date().toISOString(),
   }, { onConflict: 'user_id,step_id' })
+
+  if (step?.name) {
+    await autoMarkGoTeamLeadership(supabase, memberId, step.name, 'staff_confirmed', staffUserId)
+  }
 
   if (member?.email && step?.name) {
     try {

@@ -6,6 +6,7 @@ import {
   importPersonProgress, importBaptismFromPC,
   syncStepCompletionToPC, syncBaptismToPC,
 } from '@/lib/planning-center'
+import { autoMarkGoTeamLeadership } from './staff'
 import { revalidatePath } from 'next/cache'
 
 export async function searchPcByEmail(email: string): Promise<import('@/lib/planning-center').PcPerson[]> {
@@ -119,6 +120,11 @@ export async function linkAndImportPcProfile(userId: string, pcPersonId: string)
       await supabase
         .from('member_discipleship_progress')
         .upsert(discInserts, { onConflict: 'user_id,step_id' })
+
+      for (const s of discInserts) {
+        const name = (discSteps ?? []).find(d => d.id === s.step_id)?.name ?? ''
+        await autoMarkGoTeamLeadership(supabase, userId, name, 'pc_synced')
+      }
     }
   }
 
