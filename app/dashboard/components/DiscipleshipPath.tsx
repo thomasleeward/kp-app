@@ -112,7 +112,7 @@ function StepRow({ step }: { step: DiscipleshipStepWithProgress }) {
             <span className={`text-sm ${isComplete ? 'text-gray-800' : 'text-gray-500'}`}>
               {step.name}
             </span>
-            {isComplete && step.completion && (
+            {isComplete && step.completion && step.completion.completion_source !== 'self_reported' && (
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadge[step.completion.completion_source].className}`}>
                 {sourceBadge[step.completion.completion_source].label}
               </span>
