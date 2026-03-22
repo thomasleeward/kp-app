@@ -4,21 +4,25 @@ import { useState } from 'react'
 import { selfReportSteps, dismissSelfReport } from '@/app/actions/progress'
 import { recordBaptism } from '@/app/actions/baptism'
 import { DiscipleshipStepWithProgress } from '@/lib/services/progress'
-import { X, ClipboardList, Droplets } from 'lucide-react'
+import { X, ClipboardList, Droplets, CheckCircle2 } from 'lucide-react'
 
 interface Props {
   userId: string
   discipleshipSteps: DiscipleshipStepWithProgress[]
+  baptismDate: string | null
 }
 
-export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
+export default function SelfReportModal({ userId, discipleshipSteps, baptismDate }: Props) {
   const [open, setOpen] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [baptized, setBaptized] = useState<boolean | null>(null)
-  const [baptismDate, setBaptismDate] = useState('')
+  const [baptized, setBaptized] = useState<boolean | null>(baptismDate ? true : null)
+  const [baptismDateInput, setBaptismDateInput] = useState(baptismDate ?? '')
   const [saving, setSaving] = useState(false)
 
   if (!open) return null
+
+  const alreadyOnRecord = discipleshipSteps.filter(s => s.completion)
+  const needsReporting = discipleshipSteps.filter(s => !s.completion)
 
   function toggle(id: string) {
     setSelected(prev => {
@@ -30,10 +34,13 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
 
   async function handleSubmit() {
     setSaving(true)
-    await selfReportSteps(userId, [...selected], [])
-    if (baptized && baptismDate) {
-      await recordBaptism(userId, baptismDate)
+    if (selected.size > 0) {
+      await selfReportSteps(userId, [...selected], [])
     }
+    if (baptized && baptismDateInput && !baptismDate) {
+      await recordBaptism(userId, baptismDateInput)
+    }
+    await dismissSelfReport(userId)
     setOpen(false)
   }
 
@@ -42,7 +49,7 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
     setOpen(false)
   }
 
-  const phases = discipleshipSteps.reduce<Record<number, { name: string; steps: DiscipleshipStepWithProgress[] }>>(
+  const phases = needsReporting.reduce<Record<number, { name: string; steps: DiscipleshipStepWithProgress[] }>>(
     (acc, step) => {
       if (!acc[step.phase]) acc[step.phase] = { name: step.phase_name, steps: [] }
       acc[step.phase].steps.push(step)
@@ -50,6 +57,8 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
     },
     {}
   )
+
+  const canSave = selected.size > 0 || (baptized && baptismDateInput && !baptismDate)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -64,7 +73,9 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
             <div>
               <h2 className="font-semibold text-gray-900">Welcome to KP Discipleship</h2>
               <p className="text-sm text-gray-400 mt-0.5">
-                Have you already completed any of these steps? Check them off and we'll mark them as self-reported for staff to review.
+                {alreadyOnRecord.length > 0
+                  ? "Here's what we already have on file. Check off anything else you've completed."
+                  : "Have you already completed any of these steps? Check them off and we'll mark them for staff to review."}
               </p>
             </div>
           </div>
@@ -75,30 +86,56 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
 
         {/* Steps */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          {Object.entries(phases).map(([phaseNum, phase]) => (
-            <div key={phaseNum}>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
-                Phase {phaseNum} — {phase.name}
-              </p>
+
+          {/* Already on record */}
+          {alreadyOnRecord.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-green-600 uppercase tracking-widest mb-2.5">Already on record</p>
               <div className="space-y-2">
-                {phase.steps.map(step => (
-                  <label
-                    key={step.id}
-                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors
-                      ${selected.has(step.id) ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(step.id)}
-                      onChange={() => toggle(step.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
+                {alreadyOnRecord.map(step => (
+                  <div key={step.id} className="flex items-center gap-3 p-3 rounded-xl bg-green-50">
+                    <CheckCircle2 size={16} className="text-green-500 shrink-0" />
                     <span className="text-sm text-gray-700">{step.name}</span>
-                  </label>
+                  </div>
                 ))}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Steps to self-report */}
+          {needsReporting.length > 0 && (
+            <div className="space-y-5">
+              {alreadyOnRecord.length > 0 && (
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Anything else?</p>
+              )}
+              {Object.entries(phases).map(([phaseNum, phase]) => (
+                <div key={phaseNum}>
+                  {alreadyOnRecord.length === 0 && (
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
+                      Phase {phaseNum} — {phase.name}
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    {phase.steps.map(step => (
+                      <label
+                        key={step.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors
+                          ${selected.has(step.id) ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(step.id)}
+                          onChange={() => toggle(step.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{step.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Baptism */}
           <div className="border-t border-gray-100 pt-5">
@@ -106,37 +143,48 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
               <Droplets size={15} className="text-blue-400" />
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Baptism</p>
             </div>
-            <p className="text-sm text-gray-600 mb-3">Have you been baptized?</p>
-            <div className="flex gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setBaptized(true)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  baptized === true ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                onClick={() => { setBaptized(false); setBaptismDate('') }}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  baptized === false ? 'bg-gray-200 text-gray-700' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                No
-              </button>
-            </div>
-            {baptized && (
-              <div>
-                <label className="block text-sm text-gray-500 mb-1">Baptism date</label>
-                <input
-                  type="date"
-                  value={baptismDate}
-                  onChange={e => setBaptismDate(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            {baptismDate ? (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50">
+                <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+                <span className="text-sm text-gray-700">
+                  Baptized on {new Date(baptismDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </span>
               </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-3">Have you been baptized?</p>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setBaptized(true)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                      baptized === true ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBaptized(false); setBaptismDateInput('') }}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                      baptized === false ? 'bg-gray-200 text-gray-700' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    No
+                  </button>
+                </div>
+                {baptized && (
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">Baptism date</label>
+                    <input
+                      type="date"
+                      value={baptismDateInput}
+                      onChange={e => setBaptismDateInput(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -145,16 +193,17 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
           <button
             onClick={handleSubmit}
-            disabled={saving || selected.size === 0}
+            disabled={saving || !canSave}
             className="flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition-colors"
           >
-            {saving ? 'Saving...' : selected.size > 0 ? `Save ${selected.size} step${selected.size > 1 ? 's' : ''}` : 'Select steps above'}
+            {saving ? 'Saving...' : canSave ? `Save ${selected.size > 0 ? `${selected.size} step${selected.size > 1 ? 's' : ''}` : 'baptism'}` : 'Nothing to add'}
           </button>
           <button
             onClick={handleDismiss}
+            disabled={saving}
             className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
           >
-            Skip
+            {canSave ? 'Skip' : 'Done'}
           </button>
         </div>
       </div>

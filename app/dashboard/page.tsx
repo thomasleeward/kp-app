@@ -68,6 +68,7 @@ export default async function DashboardPage() {
         <SelfReportModal
           userId={user.id}
           discipleshipSteps={discipleshipProgress}
+          baptismDate={profile?.baptism_date ?? null}
         />
       )}
     </div>
