@@ -72,5 +72,19 @@ export async function selfReportSteps(
     }
   }
 
+  await supabase
+    .from('profiles')
+    .update({ self_report_seen_at: new Date().toISOString() })
+    .eq('id', userId)
+
+  revalidatePath('/dashboard')
+}
+
+export async function dismissSelfReport(userId: string) {
+  const supabase = await createClient()
+  await supabase
+    .from('profiles')
+    .update({ self_report_seen_at: new Date().toISOString() })
+    .eq('id', userId)
   revalidatePath('/dashboard')
 }

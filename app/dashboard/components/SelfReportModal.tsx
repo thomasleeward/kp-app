@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { selfReportSteps } from '@/app/actions/progress'
+import { selfReportSteps, dismissSelfReport } from '@/app/actions/progress'
 import { DiscipleshipStepWithProgress } from '@/lib/services/progress'
 import { X, ClipboardList } from 'lucide-react'
 
@@ -31,6 +31,11 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
     setOpen(false)
   }
 
+  async function handleDismiss() {
+    await dismissSelfReport(userId)
+    setOpen(false)
+  }
+
   const phases = discipleshipSteps.reduce<Record<number, { name: string; steps: DiscipleshipStepWithProgress[] }>>(
     (acc, step) => {
       if (!acc[step.phase]) acc[step.phase] = { name: step.phase_name, steps: [] }
@@ -57,7 +62,7 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
               </p>
             </div>
           </div>
-          <button onClick={() => setOpen(false)} className="text-gray-300 hover:text-gray-500 transition-colors ml-2 shrink-0 mt-0.5">
+          <button onClick={handleDismiss} className="text-gray-300 hover:text-gray-500 transition-colors ml-2 shrink-0 mt-0.5">
             <X size={18} />
           </button>
         </div>
@@ -100,7 +105,7 @@ export default function SelfReportModal({ userId, discipleshipSteps }: Props) {
             {saving ? 'Saving...' : selected.size > 0 ? `Save ${selected.size} step${selected.size > 1 ? 's' : ''}` : 'Select steps above'}
           </button>
           <button
-            onClick={() => setOpen(false)}
+            onClick={handleDismiss}
             className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
           >
             Skip

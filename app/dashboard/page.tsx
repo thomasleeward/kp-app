@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   const [{ data: profile }, discipleshipProgress, leadershipProgress, { data: baptismSetting }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, leadership_interest_at, leadership_track_unlocked, baptism_date')
+      .select('full_name, leadership_interest_at, leadership_track_unlocked, baptism_date, self_report_seen_at')
       .eq('id', user.id)
       .single(),
     getDiscipleshipProgress(user.id),
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   ])
 
   const lifeGroupStep = discipleshipProgress.find(s => s.name === 'Join a Life Group')
-  const hasAnyProgress = discipleshipProgress.some(s => s.completion)
+  const showSelfReport = !profile?.self_report_seen_at
 
   return (
     <div className="min-h-full flex flex-col bg-gray-50">
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
         />
       </main>
 
-      {!hasAnyProgress && (
+      {showSelfReport && (
         <SelfReportModal
           userId={user.id}
           discipleshipSteps={discipleshipProgress}
