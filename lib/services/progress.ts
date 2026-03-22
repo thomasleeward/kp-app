@@ -2,7 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 
 export type CompletionSource = 'self_reported' | 'staff_confirmed' | 'pc_synced'
 
-export interface DiscipleshipStep {
+export interface StepAction {
+  action_button_label: string | null
+  action_info: string | null
+  action_cta_text: string | null
+  action_cta_url: string | null
+}
+
+export interface DiscipleshipStep extends StepAction {
   id: string
   name: string
   phase: number
@@ -12,7 +19,7 @@ export interface DiscipleshipStep {
   flag_if_skipped: boolean
 }
 
-export interface LeadershipStep {
+export interface LeadershipStep extends StepAction {
   id: string
   level: number
   level_name: string

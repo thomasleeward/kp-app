@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, Lock, AlertTriangle, Check } from 'lucide-react'
 import { DiscipleshipStepWithProgress, CompletionSource } from '@/lib/services/progress'
+import StepActionButton from './StepActionButton'
 
 const sourceBadge: Record<CompletionSource, { label: string; className: string }> = {
   self_reported:   { label: 'Self-reported', className: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
@@ -125,6 +126,9 @@ function StepRow({ step }: { step: DiscipleshipStepWithProgress }) {
               <AlertTriangle size={11} className="shrink-0" />
               <span>You should complete Growth Track — talk to your team leader</span>
             </div>
+          )}
+          {!isComplete && !isLocked && (
+            <StepActionButton stepName={step.name} action={step} />
           )}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { expressLeadershipInterest } from '@/app/actions/leadership'
 import { CheckCircle2, Circle, ChevronRight, CheckCircle, Lock } from 'lucide-react'
 import { LeadershipStepWithProgress, CompletionSource } from '@/lib/services/progress'
+import StepActionButton from './StepActionButton'
 
 const STAGE_ORDER = ['identification', 'instruction', 'impartation', 'internship']
 const stageLabels: Record<string, string> = {
@@ -143,17 +144,24 @@ export default function LeadershipCard({ userId, trackUnlocked, alreadyIntereste
                             ? <CheckCircle2 size={15} className="text-indigo-500" />
                             : <Circle size={15} className="text-gray-200" />}
                         </div>
-                        <div className="flex-1 flex flex-wrap items-center gap-1.5">
-                          <span className="text-xs font-medium text-gray-300 w-20 shrink-0">
-                            {stageLabels[step.stage]}
-                          </span>
-                          <span className={`text-sm ${isComplete ? 'text-gray-800' : 'text-gray-500'}`}>
-                            {step.name}
-                          </span>
-                          {isComplete && step.completion && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadge[step.completion.completion_source].className}`}>
-                              {sourceBadge[step.completion.completion_source].label}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-medium text-gray-300 w-20 shrink-0">
+                              {stageLabels[step.stage]}
                             </span>
+                            <span className={`text-sm ${isComplete ? 'text-gray-800' : 'text-gray-500'}`}>
+                              {step.name}
+                            </span>
+                            {isComplete && step.completion && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadge[step.completion.completion_source].className}`}>
+                                {sourceBadge[step.completion.completion_source].label}
+                              </span>
+                            )}
+                          </div>
+                          {!isComplete && !level.steps[0]?.levelLocked && (
+                            <div className="ml-20">
+                              <StepActionButton stepName={step.name} action={step} />
+                            </div>
                           )}
                         </div>
                       </div>

@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import StaffHeader from './components/StaffHeader'
 import MemberList, { MemberRow } from './components/MemberList'
 import LeadershipRequests, { LeadershipRequest } from './components/LeadershipRequests'
-import { Users, CheckCircle2, BookOpen, Flame } from 'lucide-react'
+import { Users, CheckCircle2, BookOpen, Flame, Settings } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function StaffPage() {
   const supabase = await createClient()
@@ -105,9 +106,20 @@ export default async function StaffPage() {
       <StaffHeader name={staffProfile?.full_name ?? ''} role={staffRole.role} />
 
       <main className="flex-1 px-4 py-8 max-w-5xl mx-auto w-full space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Staff Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage members and track progress</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Staff Dashboard</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Manage members and track progress</p>
+          </div>
+          {staffRole.role === 'admin' && (
+            <Link
+              href="/staff/steps"
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 bg-white border border-gray-200 px-3 py-2 rounded-xl transition-colors"
+            >
+              <Settings size={14} />
+              Step Actions
+            </Link>
+          )}
         </div>
 
         {/* Stats */}
