@@ -26,6 +26,16 @@ async function pcPost(path: string, body: object) {
   return res.json()
 }
 
+async function pcPatch(path: string, body: object) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`PC API error ${res.status}: PATCH ${path}`)
+  return res.json()
+}
+
 async function pcDelete(path: string) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'DELETE',
