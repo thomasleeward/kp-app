@@ -181,11 +181,16 @@ export default function SignupPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               {pcProfile ? 'Confirm your details' : 'Create your account'}
             </h1>
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-500 mb-4">
               {pcProfile
                 ? 'Linked to your Planning Center profile. Set a password to finish.'
                 : 'Fill in your details to get started.'}
             </p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-4 text-sm text-blue-700">
+              {pcProfile
+                ? 'If we already have your progress on file, you\'ll see it on your dashboard when you log in. If anything looks incomplete, you\'ll be able to let us know what steps you\'ve finished.'
+                : 'Once you\'re in, you\'ll be able to let us know which steps you\'ve already completed. Our team may also follow up to confirm your progress.'}
+            </div>
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>

@@ -90,6 +90,16 @@ export default async function MemberDetailPage({
 
       <main className="flex-1 px-4 py-8 max-w-3xl mx-auto w-full space-y-5">
 
+        {/* PC not linked banner */}
+        {member.pc_link_status !== 'linked' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+            <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700">
+              Not linked to Planning Center — progress won't sync automatically.
+            </p>
+          </div>
+        )}
+
         {/* Member info card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <div className="flex items-start justify-between">
@@ -127,13 +137,11 @@ export default async function MemberDetailPage({
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                member.pc_link_status === 'linked'
-                  ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'
-                  : 'bg-gray-100 text-gray-500'
-              }`}>
-                PC {member.pc_link_status}
-              </span>
+              {member.pc_link_status === 'linked' && (
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-blue-50 text-blue-700 ring-1 ring-blue-200">
+                  PC linked
+                </span>
+              )}
               <span className="text-xs text-gray-400">{discCompleted}/{discProgress.length} steps</span>
             </div>
           </div>
