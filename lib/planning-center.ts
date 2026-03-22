@@ -122,6 +122,40 @@ export async function searchPeopleByEmail(email: string): Promise<PcPerson[]> {
   }
 }
 
+// ─── Baptism sync ─────────────────────────────────────────────────────────────
+
+const BAPTISM_BOOLEAN_FIELD_ID = '811788'
+const BAPTISM_DATE_FIELD_ID = '325111'
+
+async function setFieldValue(personId: string, fieldDefinitionId: string, value: string) {
+  const data = await pcGet(`/people/${personId}/field_data`)
+  const existing = (data.data ?? []).find(
+    (fd: any) => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
+  )
+  if (existing) {
+    await pcPatch(`/people/${personId}/field_data/${existing.id}`, {
+      data: { type: 'FieldDatum', id: existing.id, attributes: { value } },
+    })
+  } else {
+    await pcPost(`/people/${personId}/field_data`, {
+      data: {
+        type: 'FieldDatum',
+        attributes: { value },
+        relationships: {
+          field_definition: { data: { type: 'FieldDefinition', id: fieldDefinitionId } },
+        },
+      },
+    })
+  }
+}
+
+export async function syncBaptismToPC(pcPersonId: string, date: string) {
+  await Promise.all([
+    setFieldValue(pcPersonId, BAPTISM_BOOLEAN_FIELD_ID, 'true'),
+    setFieldValue(pcPersonId, BAPTISM_DATE_FIELD_ID, date),
+  ])
+}
+
 // ─── Field data helpers ───────────────────────────────────────────────────────
 // PC checkboxes: one FieldDatum per checked option, value = exact PC option label text
 

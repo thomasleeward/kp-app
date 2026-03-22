@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import StaffHeader from '../components/StaffHeader'
 import StepActionEditor from './StepActionEditor'
+import BaptismUrlEditor from './BaptismUrlEditor'
 
 export default async function StepsPage() {
   const supabase = await createClient()
@@ -15,9 +16,10 @@ export default async function StepsPage() {
   const { data: staffProfile } = await supabase
     .from('profiles').select('full_name').eq('id', user.id).single()
 
-  const [{ data: discSteps }, { data: leadSteps }] = await Promise.all([
+  const [{ data: discSteps }, { data: leadSteps }, { data: baptismSetting }] = await Promise.all([
     supabase.from('discipleship_steps').select('*').order('phase').order('step_order'),
     supabase.from('leadership_steps').select('*').order('level').order('stage'),
+    supabase.from('app_settings').select('value').eq('key', 'baptism_cta_url').single(),
   ])
 
   const discPhases = (discSteps ?? []).reduce<Record<number, { name: string; steps: any[] }>>(
@@ -89,6 +91,14 @@ export default async function StepsPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Card links */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Card Links</h2>
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <BaptismUrlEditor currentUrl={baptismSetting?.value ?? ''} />
+          </div>
         </div>
       </main>
     </div>

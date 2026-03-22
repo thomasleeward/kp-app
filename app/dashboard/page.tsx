@@ -5,6 +5,7 @@ import Header from './components/Header'
 import DiscipleshipPath from './components/DiscipleshipPath'
 import LeadershipCard from './components/LeadershipCard'
 import LifeGroupCard from './components/LifeGroupCard'
+import BaptismCard from './components/BaptismCard'
 import SelfReportModal from './components/SelfReportModal'
 
 export default async function DashboardPage() {
@@ -13,14 +14,15 @@ export default async function DashboardPage() {
 
   if (!user) redirect('/login')
 
-  const [{ data: profile }, discipleshipProgress, leadershipProgress] = await Promise.all([
+  const [{ data: profile }, discipleshipProgress, leadershipProgress, { data: baptismSetting }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, leadership_interest_at, leadership_track_unlocked')
+      .select('full_name, leadership_interest_at, leadership_track_unlocked, baptism_date')
       .eq('id', user.id)
       .single(),
     getDiscipleshipProgress(user.id),
     getLeadershipProgress(user.id),
+    supabase.from('app_settings').select('value').eq('key', 'baptism_cta_url').single(),
   ])
 
   const lifeGroupStep = discipleshipProgress.find(s => s.name === 'Join a Life Group')
@@ -40,9 +42,16 @@ export default async function DashboardPage() {
           <div className="lg:col-span-2">
             <DiscipleshipPath steps={discipleshipProgress} />
           </div>
-          {lifeGroupStep && (
-            <div className="lg:col-span-1">
-              <LifeGroupCard userId={user.id} step={lifeGroupStep} />
+          {(lifeGroupStep || true) && (
+            <div className="lg:col-span-1 flex flex-col gap-4">
+              {lifeGroupStep && (
+                <LifeGroupCard userId={user.id} step={lifeGroupStep} />
+              )}
+              <BaptismCard
+                userId={user.id}
+                baptismDate={profile?.baptism_date ?? null}
+                ctaUrl={baptismSetting?.value ?? null}
+              />
             </div>
           )}
         </div>
