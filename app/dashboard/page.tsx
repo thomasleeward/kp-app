@@ -38,7 +38,7 @@ export default async function DashboardPage() {
       <Header name={profile?.full_name ?? ''} />
 
       {/* Hero greeting */}
-      <div className="bg-gradient-to-br from-slate-900 to-blue-950 px-4 pt-7 pb-10">
+      <div className="bg-gradient-to-br from-slate-900 to-blue-950 px-4 pt-7 pb-16">
         <div className="max-w-5xl mx-auto">
           <p className="text-blue-300/70 text-sm font-medium mb-1">Welcome back{firstName ? `, ${firstName}` : ''}</p>
           <h1 className="text-2xl font-bold text-white mb-4">Your Journey</h1>
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <main className="flex-1 px-4 -mt-4 pb-8 max-w-5xl mx-auto w-full space-y-4">
+      <main className="flex-1 px-4 -mt-10 pb-8 max-w-5xl mx-auto w-full space-y-4">
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           <div className="lg:col-span-2">

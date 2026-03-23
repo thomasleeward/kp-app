@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, ChevronRight, Droplets, Users } from 'lucide-react'
+import { Search, ChevronRight, Droplets, Users, Link2, Link2Off } from 'lucide-react'
 
 export interface MemberRow {
   id: string
@@ -14,6 +14,7 @@ export interface MemberRow {
   currentPhase: string
   inLifeGroup: boolean
   baptized: boolean
+  pcLinked: boolean
 }
 
 export default function MemberList({ members }: { members: MemberRow[] }) {
@@ -81,6 +82,10 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
                   <span className={`flex items-center gap-1 text-xs ${member.baptized ? 'text-blue-500' : 'text-gray-300'}`}>
                     <Droplets size={11} />
                     Baptized
+                  </span>
+                  <span className={`flex items-center gap-1 text-xs ${member.pcLinked ? 'text-green-600' : 'text-amber-500'}`}>
+                    {member.pcLinked ? <Link2 size={11} /> : <Link2Off size={11} />}
+                    PC
                   </span>
                 </div>
               </div>

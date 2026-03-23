@@ -32,7 +32,7 @@ export default async function StaffPage() {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, leadership_interest_at, leadership_track_unlocked, baptism_date')
+      .select('id, full_name, email, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status')
       .order('full_name'),
     supabase
       .from('discipleship_steps')
@@ -99,6 +99,7 @@ export default async function StaffPage() {
           : 'none',
       inLifeGroup: lifeGroupStepId ? completedSet.has(lifeGroupStepId) : false,
       baptized: !!profile.baptism_date,
+      pcLinked: profile.pc_link_status === 'linked',
     }
   })
 
@@ -124,22 +125,27 @@ export default async function StaffPage() {
     <div className="min-h-full flex flex-col bg-gray-50">
       <StaffHeader name={staffProfile?.full_name ?? ''} role={staffRole.role} />
 
-      <main className="flex-1 px-4 py-8 max-w-5xl mx-auto w-full space-y-6">
-        <div className="flex items-start justify-between">
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-slate-900 to-blue-950 px-4 pt-7 pb-16">
+        <div className="max-w-5xl mx-auto flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Staff Dashboard</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Manage members and track progress</p>
+            <p className="text-blue-300/70 text-sm font-medium mb-1">King's Park</p>
+            <h1 className="text-2xl font-bold text-white">Staff Dashboard</h1>
+            <p className="text-white/40 text-sm mt-0.5">Manage members and track progress</p>
           </div>
           {staffRole.role === 'admin' && (
             <Link
               href="/staff/steps"
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 bg-white border border-gray-200 px-3 py-2 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors"
             >
               <Settings size={14} />
               Step Actions
             </Link>
           )}
         </div>
+      </div>
+
+      <main className="flex-1 px-4 -mt-10 pb-8 max-w-5xl mx-auto w-full space-y-6">
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
