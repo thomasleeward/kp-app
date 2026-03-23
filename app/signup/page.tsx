@@ -131,7 +131,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900">
       <div className="relative flex-1 flex flex-col px-6 py-12 max-w-sm mx-auto w-full">
 
         {/* Back */}

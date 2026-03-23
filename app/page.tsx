@@ -17,7 +17,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900">
       {/* Background texture */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-800/20 via-transparent to-transparent pointer-events-none" />
 
