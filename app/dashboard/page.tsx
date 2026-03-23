@@ -28,15 +28,33 @@ export default async function DashboardPage() {
   const lifeGroupStep = discipleshipProgress.find(s => s.name === 'Join a Life Group')
   const showSelfReport = !profile?.self_report_seen_at
 
+  const firstName = profile?.full_name?.split(' ')[0] ?? ''
+  const completedSteps = discipleshipProgress.filter(s => s.completion && s.name !== 'Join a Life Group').length
+  const totalSteps = discipleshipProgress.filter(s => s.name !== 'Join a Life Group').length
+  const percent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
+
   return (
     <div className="min-h-full flex flex-col bg-gray-50">
       <Header name={profile?.full_name ?? ''} />
 
-      <main className="flex-1 px-4 py-8 max-w-5xl mx-auto w-full space-y-4">
-        <div className="mb-2">
-          <h1 className="text-xl font-bold text-gray-900">Your Journey</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Track your discipleship and leadership progress</p>
+      {/* Hero greeting */}
+      <div className="bg-gradient-to-br from-slate-900 to-blue-950 px-4 pt-7 pb-10">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-blue-300/70 text-sm font-medium mb-1">Welcome back{firstName ? `, ${firstName}` : ''}</p>
+          <h1 className="text-2xl font-bold text-white mb-4">Your Journey</h1>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-white/10 rounded-full h-2">
+              <div
+                className="bg-blue-400 h-2 rounded-full transition-all duration-700"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <span className="text-white/60 text-sm font-medium shrink-0">{percent}% complete</span>
+          </div>
         </div>
+      </div>
+
+      <main className="flex-1 px-4 -mt-4 pb-8 max-w-5xl mx-auto w-full space-y-4">
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           <div className="lg:col-span-2">
