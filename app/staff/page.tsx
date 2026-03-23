@@ -49,6 +49,22 @@ export default async function StaffPage() {
   const allProgress = discProgress ?? []
   const lifeGroupStepId = allSteps.find(s => s.name === 'Join a Life Group')?.id
 
+  // Per-phase completion stats (exclude Life Group step)
+  const countableSteps = allSteps.filter(s => s.name !== 'Join a Life Group')
+  const phaseStats = Object.values(
+    countableSteps.reduce<Record<number, { name: string; stepIds: string[] }>>((acc, step) => {
+      if (!acc[step.phase]) acc[step.phase] = { name: step.phase_name, stepIds: [] }
+      acc[step.phase].stepIds.push(step.id)
+      return acc
+    }, {})
+  ).map(({ name, stepIds }) => {
+    const completed = allProfiles.filter(profile => {
+      const memberStepIds = new Set(allProgress.filter(p => p.user_id === profile.id).map(p => p.step_id))
+      return stepIds.every(id => memberStepIds.has(id))
+    }).length
+    return { name, completed, total: allProfiles.length }
+  })
+
   // Compute per-member stats
   const memberRows: MemberRow[] = allProfiles.map(profile => {
     const completed = allProgress.filter(p => p.user_id === profile.id).map(p => p.step_id)
@@ -131,6 +147,30 @@ export default async function StaffPage() {
           <StatCard icon={<BookOpen size={18} className="text-green-500" />} label="Active" value={activeMembers} color="green" />
           <StatCard icon={<CheckCircle2 size={18} className="text-indigo-500" />} label="Path complete" value={completedPath} color="indigo" />
           <StatCard icon={<Flame size={18} className="text-amber-500" />} label="Leadership requests" value={pendingLeadership} color="amber" />
+        </div>
+
+        {/* Phase completion breakdown */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Discipleship Path Progress</h2>
+          <div className="space-y-3">
+            {phaseStats.map(({ name, completed, total }) => {
+              const pct = total === 0 ? 0 : Math.round((completed / total) * 100)
+              return (
+                <div key={name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">{name}</span>
+                    <span className="text-sm text-gray-400">{completed}/{total} <span className="text-xs">({pct}%)</span></span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className="bg-blue-500 h-1.5 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* Leadership interest requests */}
