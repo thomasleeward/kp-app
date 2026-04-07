@@ -36,6 +36,7 @@ export interface ProgressRecord {
   completed_at: string
   completion_source: CompletionSource
   notes: string | null
+  completed_by: string | null
 }
 
 export interface DiscipleshipStepWithProgress extends DiscipleshipStep {

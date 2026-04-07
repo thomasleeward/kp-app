@@ -29,9 +29,6 @@ export default async function DashboardPage() {
   const showSelfReport = !profile?.self_report_seen_at
 
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
-  const completedSteps = discipleshipProgress.filter(s => s.completion && s.name !== 'Join a Life Group').length
-  const totalSteps = discipleshipProgress.filter(s => s.name !== 'Join a Life Group').length
-  const percent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
 
   return (
     <div className="min-h-full flex flex-col bg-gray-50">
@@ -41,16 +38,7 @@ export default async function DashboardPage() {
       <div className="bg-gradient-to-br from-slate-900 to-blue-950 px-4 pt-7 pb-16">
         <div className="max-w-5xl mx-auto">
           <p className="text-blue-300/70 text-sm font-medium mb-1">Welcome back{firstName ? `, ${firstName}` : ''}</p>
-          <h1 className="text-2xl font-bold text-white mb-4">Your Journey</h1>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 bg-white/10 rounded-full h-2">
-              <div
-                className="bg-blue-400 h-2 rounded-full transition-all duration-700"
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-            <span className="text-white/60 text-sm font-medium shrink-0">{percent}% complete</span>
-          </div>
+          <h1 className="text-2xl font-bold text-white">Your Journey</h1>
         </div>
       </div>
 

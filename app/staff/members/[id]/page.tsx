@@ -7,6 +7,8 @@ import UnmarkButton from './components/UnmarkButton'
 import UnlockButton from './components/UnlockButton'
 import DeleteMemberButton from './components/DeleteMemberButton'
 import LinkToPcModal from './components/LinkToPcModal'
+import RefreshFromPCButton from './components/RefreshFromPCButton'
+import { refreshMemberFromPC } from '@/app/actions/pc'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
   Mail, Phone, User, Droplets
@@ -19,10 +21,20 @@ const stageLabels: Record<string, string> = {
   impartation:    'Impartation',
   internship:     'Internship',
 }
-const sourceBadge = {
-  self_reported:   { label: 'Self-reported', className: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
-  staff_confirmed: { label: 'Confirmed',     className: 'bg-green-50 text-green-700 ring-1 ring-green-200' },
-  pc_synced:       { label: 'Synced',        className: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' },
+const sourceBadgeClass = {
+  self_reported:   'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  staff_confirmed: 'bg-green-50 text-green-700 ring-1 ring-green-200',
+  pc_synced:       'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+}
+
+function sourceBadgeLabel(source: string, completedBy: string | null | undefined, staffNames: Record<string, string>) {
+  if (source === 'self_reported') return 'Self-reported'
+  if (source === 'pc_synced') return 'Synced'
+  if (source === 'staff_confirmed') {
+    const name = completedBy ? staffNames[completedBy] : null
+    return name ? `Confirmed by ${name}` : 'Confirmed'
+  }
+  return source
 }
 
 export default async function MemberDetailPage({
@@ -43,6 +55,11 @@ export default async function MemberDetailPage({
   const { data: staffProfile } = await supabase
     .from('profiles').select('full_name').eq('id', user.id).single()
 
+  // Sync from Planning Center on every page load so data stays current
+  if (staffRole.role === 'editor' || staffRole.role === 'admin') {
+    try { await refreshMemberFromPC(memberId) } catch {}
+  }
+
   const [
     { data: member },
     discProgress,
@@ -56,6 +73,24 @@ export default async function MemberDetailPage({
     getDiscipleshipProgress(memberId),
     getLeadershipProgress(memberId),
   ])
+
+  // Collect all staff IDs who confirmed steps so we can show their names
+  const completedByIds = [
+    ...discProgress.map(s => s.completion?.completed_by),
+    ...leadProgress.map(s => s.completion?.completed_by),
+  ].filter((id): id is string => !!id)
+  const uniqueStaffIds = [...new Set(completedByIds)]
+
+  const staffNames: Record<string, string> = {}
+  if (uniqueStaffIds.length > 0) {
+    const { data: staffProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', uniqueStaffIds)
+    for (const p of staffProfiles ?? []) {
+      staffNames[p.id] = p.full_name
+    }
+  }
 
   if (!member) notFound()
 
@@ -142,9 +177,12 @@ export default async function MemberDetailPage({
             </div>
             <div className="flex flex-col items-end gap-2">
               {member.pc_link_status === 'linked' && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-blue-50 text-blue-700 ring-1 ring-blue-200">
-                  PC linked
-                </span>
+                <>
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-blue-50 text-blue-700 ring-1 ring-blue-200">
+                    PC linked
+                  </span>
+                  {canEdit && <RefreshFromPCButton memberId={member.id} />}
+                </>
               )}
               <span className="text-xs text-gray-400">{discCompleted}/{discProgress.length} steps</span>
             </div>
@@ -185,8 +223,8 @@ export default async function MemberDetailPage({
                               {step.name}
                             </span>
                             {isComplete && step.completion && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadge[step.completion.completion_source].className}`}>
-                                {sourceBadge[step.completion.completion_source].label}
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadgeClass[step.completion.completion_source]}`}>
+                                {sourceBadgeLabel(step.completion.completion_source, step.completion.completed_by, staffNames)}
                               </span>
                             )}
                             {step.showFlag && (
@@ -268,8 +306,8 @@ export default async function MemberDetailPage({
                                   </span>
                                 )}
                                 {isComplete && step.completion && (
-                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadge[step.completion.completion_source].className}`}>
-                                    {sourceBadge[step.completion.completion_source].label}
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceBadgeClass[step.completion.completion_source]}`}>
+                                    {sourceBadgeLabel(step.completion.completion_source, step.completion.completed_by, staffNames)}
                                   </span>
                                 )}
                               </div>

@@ -88,6 +88,70 @@ export async function createAndLinkPcProfile(userId: string) {
   revalidatePath('/staff')
 }
 
+export async function refreshMemberFromPC(memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: staffRole } = await supabase
+    .from('staff_roles').select('role').eq('user_id', user.id).single()
+  if (!staffRole || staffRole.role === 'viewer') throw new Error('Insufficient permissions')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('planning_center_id')
+    .eq('id', memberId)
+    .single()
+
+  if (!profile?.planning_center_id) throw new Error('Member is not linked to Planning Center')
+
+  const pcPersonId = profile.planning_center_id
+
+  const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+
+  if (completedDiscipleship.length > 0) {
+    const { data: discSteps } = await supabase.from('discipleship_steps').select('id, name')
+    const discInserts = (discSteps ?? [])
+      .filter(s => completedDiscipleship.some(n => n.toLowerCase() === s.name.toLowerCase()))
+      .map(s => ({ user_id: memberId, step_id: s.id, completion_source: 'pc_synced' as const }))
+
+    if (discInserts.length > 0) {
+      await supabase
+        .from('member_discipleship_progress')
+        .upsert(discInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
+
+      for (const s of discInserts) {
+        const name = (discSteps ?? []).find(d => d.id === s.step_id)?.name ?? ''
+        await autoMarkGoTeamLeadership(supabase, memberId, name, 'pc_synced')
+      }
+    }
+  }
+
+  if (completedLeadership.length > 0) {
+    const { data: leadSteps } = await supabase.from('leadership_steps').select('id, name, level_name')
+    const leadInserts = (leadSteps ?? [])
+      .filter(s => completedLeadership.some(n => n.toLowerCase() === `${s.level_name}: ${s.name}`.toLowerCase()))
+      .map(s => ({ user_id: memberId, step_id: s.id, completion_source: 'pc_synced' as const }))
+
+    if (leadInserts.length > 0) {
+      await supabase
+        .from('member_leadership_progress')
+        .upsert(leadInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
+    }
+  }
+
+  const baptismDate = await importBaptismFromPC(pcPersonId)
+  if (baptismDate) {
+    const { data: existing } = await supabase
+      .from('profiles').select('baptism_date').eq('id', memberId).single()
+    if (!existing?.baptism_date) {
+      await supabase.from('profiles').update({ baptism_date: baptismDate }).eq('id', memberId)
+    }
+  }
+
+  revalidatePath(`/staff/members/${memberId}`)
+}
+
 export async function linkAndImportPcProfile(userId: string, pcPersonId: string) {
   const supabase = await createClient()
 
