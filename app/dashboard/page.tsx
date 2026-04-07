@@ -7,12 +7,16 @@ import LeadershipCard from './components/LeadershipCard'
 import LifeGroupCard from './components/LifeGroupCard'
 import BaptismCard from './components/BaptismCard'
 import SelfReportModal from './components/SelfReportModal'
+import { refreshOwnProfileFromPC } from '@/app/actions/pc'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  // Sync from Planning Center on every load so progress stays current
+  try { await refreshOwnProfileFromPC() } catch {}
 
   const [{ data: profile }, discipleshipProgress, leadershipProgress, { data: baptismSetting }] = await Promise.all([
     supabase

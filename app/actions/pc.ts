@@ -152,6 +152,64 @@ export async function refreshMemberFromPC(memberId: string) {
   revalidatePath(`/staff/members/${memberId}`)
 }
 
+export async function refreshOwnProfileFromPC() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('planning_center_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.planning_center_id) return
+
+  const pcPersonId = profile.planning_center_id
+
+  const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+
+  if (completedDiscipleship.length > 0) {
+    const { data: discSteps } = await supabase.from('discipleship_steps').select('id, name')
+    const discInserts = (discSteps ?? [])
+      .filter(s => completedDiscipleship.some(n => n.toLowerCase() === s.name.toLowerCase()))
+      .map(s => ({ user_id: user.id, step_id: s.id, completion_source: 'pc_synced' as const }))
+
+    if (discInserts.length > 0) {
+      await supabase
+        .from('member_discipleship_progress')
+        .upsert(discInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
+
+      for (const s of discInserts) {
+        const name = (discSteps ?? []).find(d => d.id === s.step_id)?.name ?? ''
+        await autoMarkGoTeamLeadership(supabase, user.id, name, 'pc_synced')
+      }
+    }
+  }
+
+  if (completedLeadership.length > 0) {
+    const { data: leadSteps } = await supabase.from('leadership_steps').select('id, name, level_name')
+    const leadInserts = (leadSteps ?? [])
+      .filter(s => completedLeadership.some(n => n.toLowerCase() === `${s.level_name}: ${s.name}`.toLowerCase()))
+      .map(s => ({ user_id: user.id, step_id: s.id, completion_source: 'pc_synced' as const }))
+
+    if (leadInserts.length > 0) {
+      await supabase
+        .from('member_leadership_progress')
+        .upsert(leadInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
+    }
+  }
+
+  const baptismDate = await importBaptismFromPC(pcPersonId)
+  if (baptismDate) {
+    const { data: existing } = await supabase
+      .from('profiles').select('baptism_date').eq('id', user.id).single()
+    if (!existing?.baptism_date) {
+      await supabase.from('profiles').update({ baptism_date: baptismDate }).eq('id', user.id)
+    }
+  }
+}
+
 export async function linkAndImportPcProfile(userId: string, pcPersonId: string) {
   const supabase = await createClient()
 
