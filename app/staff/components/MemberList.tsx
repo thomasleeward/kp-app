@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, ChevronRight, Droplets, Users, Link2, Link2Off } from 'lucide-react'
+import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus } from 'lucide-react'
 
 export interface MemberRow {
   id: string
   full_name: string
   email: string | null
+  created_at: string | null
   discCompleted: number
   discTotal: number
   leadershipStatus: 'none' | 'interested' | 'unlocked'
@@ -32,6 +33,15 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
     none:       { label: 'Not started',  className: 'bg-gray-100 text-gray-500' },
     interested: { label: 'Interested',   className: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
     unlocked:   { label: 'Track open',   className: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' },
+  }
+
+  const formatAddedDate = (date: string | null) => {
+    if (!date) return 'Date unavailable'
+
+    const parsed = new Date(date)
+    if (Number.isNaN(parsed.getTime())) return 'Date unavailable'
+
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   return (
@@ -73,6 +83,11 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
                   <span className="text-xs text-gray-300">·</span>
                   <span className="text-xs text-gray-400">
                     {member.discCompleted}/{member.discTotal} steps
+                  </span>
+                  <span className="text-xs text-gray-300">·</span>
+                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <CalendarPlus size={11} />
+                    Added {formatAddedDate(member.created_at)}
                   </span>
                   <span className="text-xs text-gray-300">·</span>
                   <span className={`flex items-center gap-1 text-xs ${member.inLifeGroup ? 'text-green-600' : 'text-gray-300'}`}>

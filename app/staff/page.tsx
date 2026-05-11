@@ -32,7 +32,7 @@ export default async function StaffPage() {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status')
+      .select('id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status')
       .order('full_name'),
     supabase
       .from('discipleship_steps')
@@ -89,6 +89,7 @@ export default async function StaffPage() {
       id: profile.id,
       full_name: profile.full_name,
       email: profile.email,
+      created_at: profile.created_at,
       discCompleted: completed.length,
       discTotal: allSteps.length,
       currentPhase,
@@ -129,7 +130,7 @@ export default async function StaffPage() {
       <div className="bg-gradient-to-br from-slate-900 to-blue-950 px-4 pt-7 pb-16">
         <div className="max-w-5xl mx-auto flex items-start justify-between">
           <div>
-            <p className="text-blue-300/70 text-sm font-medium mb-1">King's Park</p>
+            <p className="text-blue-300/70 text-sm font-medium mb-1">King&apos;s Park</p>
             <h1 className="text-2xl font-bold text-white">Staff Dashboard</h1>
             <p className="text-white/40 text-sm mt-0.5">Manage members and track progress</p>
           </div>
