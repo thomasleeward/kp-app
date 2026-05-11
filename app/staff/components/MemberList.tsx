@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus } from 'lucide-react'
+import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp } from 'lucide-react'
 
 export interface MemberRow {
   id: string
@@ -18,8 +18,18 @@ export interface MemberRow {
   pcLinked: boolean
 }
 
+type SortOption = 'name' | 'added_desc' | 'added_asc'
+
 export default function MemberList({ members }: { members: MemberRow[] }) {
   const [query, setQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortOption>('name')
+
+  const dateValue = (date: string | null) => {
+    if (!date) return 0
+
+    const parsed = new Date(date).getTime()
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
 
   const filtered = members.filter(m => {
     const q = query.toLowerCase()
@@ -27,6 +37,13 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
       m.full_name.toLowerCase().includes(q) ||
       (m.email ?? '').toLowerCase().includes(q)
     )
+  })
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'added_desc') return dateValue(b.created_at) - dateValue(a.created_at)
+    if (sortBy === 'added_asc') return dateValue(a.created_at) - dateValue(b.created_at)
+
+    return a.full_name.localeCompare(b.full_name)
   })
 
   const leadershipBadge = {
@@ -47,25 +64,41 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div className="relative sm:w-44">
+            <ArrowDownUp size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortOption)}
+              aria-label="Sort members"
+              className="w-full appearance-none pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600"
+            >
+              <option value="name">Name</option>
+              <option value="added_desc">Newest added</option>
+              <option value="added_asc">Oldest added</option>
+            </select>
+            <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
+          </div>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {sorted.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-gray-400">
           {query ? 'No members match your search.' : 'No members yet.'}
         </div>
       ) : (
         <div className="divide-y divide-gray-50">
-          {filtered.map(member => (
+          {sorted.map(member => (
             <Link
               key={member.id}
               href={`/staff/members/${member.id}`}
@@ -112,7 +145,7 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
 
       <div className="px-5 py-3 border-t border-gray-50">
         <p className="text-xs text-gray-400">
-          {filtered.length} of {members.length} member{members.length !== 1 ? 's' : ''}
+          {sorted.length} of {members.length} member{members.length !== 1 ? 's' : ''}
         </p>
       </div>
     </div>
