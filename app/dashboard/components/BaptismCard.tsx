@@ -13,12 +13,14 @@ interface Props {
 export default function BaptismCard({ userId, baptismDate, ctaUrl }: Props) {
   const [step, setStep] = useState<'ask' | 'date' | 'done'>(baptismDate ? 'done' : 'ask')
   const [date, setDate] = useState('')
+  const [recordedDate, setRecordedDate] = useState(baptismDate)
   const [pending, startTransition] = useTransition()
 
   function handleConfirm() {
     if (!date) return
     startTransition(async () => {
       await recordBaptism(userId, date)
+      setRecordedDate(date)
       setStep('done')
     })
   }
@@ -35,8 +37,8 @@ export default function BaptismCard({ userId, baptismDate, ctaUrl }: Props) {
             <div>
               <h2 className="text-lg font-bold text-white">Baptism recorded!</h2>
               <p className="text-blue-100 text-sm mt-1 leading-relaxed">
-                {baptismDate
-                  ? `Baptized on ${new Date(baptismDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`
+                {recordedDate
+                  ? `Baptized on ${new Date(recordedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`
                   : 'Thanks for letting us know.'}
               </p>
             </div>
