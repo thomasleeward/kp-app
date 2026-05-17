@@ -38,6 +38,14 @@ function sourceBadgeLabel(source: string, completedBy: string | null | undefined
   return source
 }
 
+function readGoTeams(profile: object) {
+  if (!('go_teams' in profile)) return []
+
+  return Array.isArray(profile.go_teams)
+    ? profile.go_teams.filter((team): team is string => typeof team === 'string' && team.length > 0)
+    : []
+}
+
 export default async function MemberDetailPage({
   params,
 }: {
@@ -61,17 +69,26 @@ export default async function MemberDetailPage({
     try { await refreshMemberFromPC(memberId) } catch {}
   }
 
+  const memberFields = 'id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date'
+  const memberWithTeams = await supabase
+    .from('profiles')
+    .select(`${memberFields}, go_teams`)
+    .eq('id', memberId)
+    .single()
+
+  const memberResult = memberWithTeams.error
+    ? await supabase
+        .from('profiles')
+        .select(memberFields)
+        .eq('id', memberId)
+        .single()
+    : memberWithTeams
+
   const [
-    { data: member },
     { data: memberStaffRole },
     discProgress,
     leadProgress,
   ] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date, go_teams')
-      .eq('id', memberId)
-      .single(),
     supabase
       .from('staff_roles')
       .select('role')
@@ -80,6 +97,8 @@ export default async function MemberDetailPage({
     getDiscipleshipProgress(memberId),
     getLeadershipProgress(memberId),
   ])
+
+  const { data: member } = memberResult
 
   // Collect all staff IDs who confirmed steps so we can show their names
   const completedByIds = [
@@ -103,7 +122,7 @@ export default async function MemberDetailPage({
 
   const canEdit = staffRole.role === 'editor' || staffRole.role === 'admin'
   const discCompleted = discProgress.filter(s => s.completion).length
-  const goTeams = Array.isArray(member.go_teams) ? member.go_teams.filter(Boolean) : []
+  const goTeams = readGoTeams(member)
 
   // Group discipleship steps by phase
   const phases = discProgress.reduce<Record<number, { name: string; steps: typeof discProgress }>>(

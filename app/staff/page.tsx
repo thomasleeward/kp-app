@@ -6,6 +6,14 @@ import LeadershipRequests, { LeadershipRequest } from './components/LeadershipRe
 import { Users, CheckCircle2, BookOpen, Flame, Settings, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
+function readGoTeams(profile: object) {
+  if (!('go_teams' in profile)) return []
+
+  return Array.isArray(profile.go_teams)
+    ? profile.go_teams.filter((team): team is string => typeof team === 'string' && team.length > 0)
+    : []
+}
+
 export default async function StaffPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,16 +32,24 @@ export default async function StaffPage() {
     .eq('id', user.id)
     .single()
 
+  const profileFields = 'id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status'
+  const profilesWithTeams = await supabase
+    .from('profiles')
+    .select(`${profileFields}, go_teams`)
+    .order('full_name')
+
+  const profilesResult = profilesWithTeams.error
+    ? await supabase
+        .from('profiles')
+        .select(profileFields)
+        .order('full_name')
+    : profilesWithTeams
+
   // Fetch all data in parallel
   const [
-    { data: profiles },
     { data: discSteps },
     { data: discProgress },
   ] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status, go_teams')
-      .order('full_name'),
     supabase
       .from('discipleship_steps')
       .select('id, name, phase, phase_name, step_order')
@@ -44,7 +60,7 @@ export default async function StaffPage() {
       .select('user_id, step_id'),
   ])
 
-  const allProfiles = profiles ?? []
+  const allProfiles = profilesResult.data ?? []
   const allSteps = discSteps ?? []
   const allProgress = discProgress ?? []
   const lifeGroupStepId = allSteps.find(s => s.name === 'Join a Life Group')?.id
@@ -101,7 +117,7 @@ export default async function StaffPage() {
       inLifeGroup: lifeGroupStepId ? completedSet.has(lifeGroupStepId) : false,
       baptized: !!profile.baptism_date,
       pcLinked: profile.pc_link_status === 'linked',
-      goTeams: Array.isArray(profile.go_teams) ? profile.go_teams.filter(Boolean) : [],
+      goTeams: readGoTeams(profile),
     }
   })
 
