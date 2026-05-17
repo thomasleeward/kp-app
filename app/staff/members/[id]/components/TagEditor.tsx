@@ -8,14 +8,23 @@ import { Plus, Tag, X } from 'lucide-react'
 export default function TagEditor({
   memberId,
   tags,
+  tagOptions,
 }: {
   memberId: string
   tags: string[]
+  tagOptions: string[]
 }) {
-  const [tag, setTag] = useState('')
+  const [mode, setMode] = useState<'existing' | 'new'>('existing')
+  const [selectedTag, setSelectedTag] = useState('')
+  const [newTag, setNewTag] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const router = useRouter()
+
+  const availableTags = tagOptions.filter(
+    option => !tags.some(tag => tag.toLowerCase() === option.toLowerCase())
+  )
+  const tag = mode === 'new' ? newTag : selectedTag
 
   function handleAdd() {
     const nextTag = tag.trim().replace(/\s+/g, ' ')
@@ -25,7 +34,9 @@ export default function TagEditor({
     startTransition(async () => {
       try {
         await addMemberTag(memberId, nextTag)
-        setTag('')
+        setSelectedTag('')
+        setNewTag('')
+        setMode('existing')
         router.refresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unable to add tag.')
@@ -72,20 +83,63 @@ export default function TagEditor({
       )}
 
       <div className="flex flex-col sm:flex-row gap-2">
-        <input
-          type="text"
-          value={tag}
-          onChange={e => setTag(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              handleAdd()
-            }
-          }}
-          placeholder="Add a tag..."
-          disabled={pending}
-          className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        />
+        {mode === 'existing' ? (
+          <div className="flex-1 flex flex-col sm:flex-row gap-2">
+            <select
+              value={selectedTag}
+              onChange={e => setSelectedTag(e.target.value)}
+              disabled={pending || availableTags.length === 0}
+              aria-label="Select tag"
+              className="flex-1 px-3 py-2 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+            >
+              <option value="">{availableTags.length > 0 ? 'Choose a tag...' : 'No more tags available'}</option>
+              {availableTags.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('new')
+                setSelectedTag('')
+                setError(null)
+              }}
+              disabled={pending}
+              className="px-3 py-2 text-sm font-medium text-indigo-700 hover:text-indigo-900 bg-indigo-50 ring-1 ring-indigo-100 rounded-xl disabled:opacity-50 transition-colors"
+            >
+              New Tag
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={newTag}
+              onChange={e => setNewTag(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAdd()
+                }
+              }}
+              placeholder="Create a new tag..."
+              disabled={pending}
+              className="flex-1 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setMode('existing')
+                setNewTag('')
+                setError(null)
+              }}
+              disabled={pending}
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 bg-gray-50 ring-1 ring-gray-200 rounded-xl disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={handleAdd}

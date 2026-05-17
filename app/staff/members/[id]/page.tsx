@@ -10,7 +10,7 @@ import MakeAdminButton from './components/MakeAdminButton'
 import LinkToPcModal from './components/LinkToPcModal'
 import RefreshFromPCButton from './components/RefreshFromPCButton'
 import TagEditor from './components/TagEditor'
-import { refreshMemberFromPC } from '@/app/actions/pc'
+import { getTagOptions, refreshMemberFromPC } from '@/app/actions/pc'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
   Mail, Phone, User, Droplets, ShieldCheck, Users, Tag
@@ -139,6 +139,7 @@ export default async function MemberDetailPage({
   const discCompleted = discProgress.filter(s => s.completion).length
   const goTeams = readStringArray(member, 'go_teams')
   const tags = readStringArray(member, 'tags')
+  const tagOptions = canEdit ? await getTagOptions() : []
 
   // Group discipleship steps by phase
   const phases = discProgress.reduce<Record<number, { name: string; steps: typeof discProgress }>>(
@@ -257,7 +258,7 @@ export default async function MemberDetailPage({
         </div>
 
         {canEdit && member.pc_link_status === 'linked' && (
-          <TagEditor memberId={member.id} tags={tags} />
+          <TagEditor memberId={member.id} tags={tags} tagOptions={tagOptions} />
         )}
 
         {/* Discipleship Path */}

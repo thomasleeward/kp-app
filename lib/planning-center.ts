@@ -90,6 +90,13 @@ interface PcFieldDatumResource {
   }
 }
 
+interface PcFieldOptionResource {
+  id: string
+  attributes?: {
+    value?: string
+  }
+}
+
 // ─── Option mappings ──────────────────────────────────────────────────────────
 // pcLabel: exact text stored as value in PC FieldDatum (must match PC option label)
 // dbName:  matches discipleship_steps.name or "${level_name}: ${name}" in DB
@@ -321,6 +328,14 @@ async function getFieldData(
     .map(fd => ({ datumId: fd.id, value: fd.attributes?.value ?? '' }))
 }
 
+async function getFieldOptions(fieldDefinitionId: string): Promise<string[]> {
+  const data = await pcGet(`/field_definitions/${fieldDefinitionId}/field_options?per_page=100`)
+
+  return normalizeValues(
+    ((data.data ?? []) as PcFieldOptionResource[]).map(option => option.attributes?.value ?? '')
+  )
+}
+
 // ─── Import: get completed step names for a person ───────────────────────────
 
 export async function importPersonProgress(pcPersonId: string): Promise<PcProgressImport> {
@@ -359,6 +374,12 @@ export async function importTagsFromPC(pcPersonId: string): Promise<string[]> {
 
   const data = await getFieldData(pcPersonId, TAGS_FIELD_ID)
   return normalizeValues(data.map(d => d.value))
+}
+
+export async function getTagOptionsFromPC(): Promise<string[]> {
+  if (!TAGS_FIELD_ID) return []
+
+  return getFieldOptions(TAGS_FIELD_ID)
 }
 
 function normalizeTag(tag: string) {

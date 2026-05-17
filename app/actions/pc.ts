@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   searchPeopleByEmail, searchPeopleByName, createPcPerson,
   importPersonProgress, importBaptismFromPC, importGoTeamsFromPC, importTagsFromPC,
-  isGoTeamsSyncConfigured, isTagsSyncConfigured, syncTagToPC, unsyncTagFromPC,
+  getTagOptionsFromPC, isGoTeamsSyncConfigured, isTagsSyncConfigured, syncTagToPC, unsyncTagFromPC,
   syncStepCompletionToPC, syncBaptismToPC,
 } from '@/lib/planning-center'
 import { revalidatePath } from 'next/cache'
@@ -27,6 +27,10 @@ export async function searchPcByEmail(email: string): Promise<import('@/lib/plan
 
 export async function searchPcByName(name: string): Promise<import('@/lib/planning-center').PcPerson[]> {
   return await searchPeopleByName(name)
+}
+
+export async function getTagOptions(): Promise<string[]> {
+  return await getTagOptionsFromPC()
 }
 
 // Push all existing app progress for a member to PC, then mark as linked
