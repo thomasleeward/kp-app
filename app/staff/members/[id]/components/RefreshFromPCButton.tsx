@@ -1,15 +1,18 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { refreshMemberFromPC } from '@/app/actions/pc'
 import { RefreshCw } from 'lucide-react'
 
 export default function RefreshFromPCButton({ memberId }: { memberId: string }) {
   const [pending, startTransition] = useTransition()
+  const router = useRouter()
 
   function handleClick() {
     startTransition(async () => {
       await refreshMemberFromPC(memberId)
+      router.refresh()
     })
   }
 

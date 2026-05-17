@@ -99,6 +99,12 @@ interface OptionMap {
   dbName: string
 }
 
+export interface PcProgressImport {
+  completedDiscipleship: string[]
+  completedLeadership: string[]
+  imported: boolean
+}
+
 const DISC_FIELD_ID = '1033964'
 const LEAD_FIELD_ID = '1034012'
 const GO_TEAMS_FIELD_ID = process.env.PLANNING_CENTER_GO_TEAMS_FIELD_ID
@@ -292,24 +298,27 @@ async function getFieldData(
   personId: string,
   fieldDefinitionId: string
 ): Promise<Array<{ datumId: string; value: string }>> {
+  const fieldId = encodeURIComponent(fieldDefinitionId)
+  let data
+
   try {
-    const data = await pcGet(`/people/${personId}/field_data`)
-    return ((data.data ?? []) as PcFieldDatumResource[])
-      .filter(
-        fd => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
-      )
-      .map(fd => ({ datumId: fd.id, value: fd.attributes?.value ?? '' }))
+    data = await pcGet(
+      `/people/${personId}/field_data?where[field_definition_id]=${fieldId}&per_page=100`
+    )
   } catch {
-    return []
+    data = await pcGet(`/people/${personId}/field_data?per_page=100`)
   }
+
+  return ((data.data ?? []) as PcFieldDatumResource[])
+    .filter(
+      fd => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
+    )
+    .map(fd => ({ datumId: fd.id, value: fd.attributes?.value ?? '' }))
 }
 
 // ─── Import: get completed step names for a person ───────────────────────────
 
-export async function importPersonProgress(pcPersonId: string): Promise<{
-  completedDiscipleship: string[]
-  completedLeadership: string[]
-}> {
+export async function importPersonProgress(pcPersonId: string): Promise<PcProgressImport> {
   try {
     const [discData, leadData] = await Promise.all([
       getFieldData(pcPersonId, DISC_FIELD_ID),
@@ -326,10 +335,10 @@ export async function importPersonProgress(pcPersonId: string): Promise<{
       .filter(Boolean)
       .map(entry => entry![1].dbName)
 
-    return { completedDiscipleship, completedLeadership }
+    return { completedDiscipleship, completedLeadership, imported: true }
   } catch (e) {
     console.error('[PC] Import error:', e)
-    return { completedDiscipleship: [], completedLeadership: [] }
+    return { completedDiscipleship: [], completedLeadership: [], imported: false }
   }
 }
 

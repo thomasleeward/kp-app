@@ -6,7 +6,6 @@ import {
   importPersonProgress, importBaptismFromPC, importGoTeamsFromPC, isGoTeamsSyncConfigured,
   syncStepCompletionToPC, syncBaptismToPC,
 } from '@/lib/planning-center'
-import { autoMarkGoTeamLeadership } from './staff'
 import { revalidatePath } from 'next/cache'
 
 interface DiscipleshipProgressRow {
@@ -77,6 +76,63 @@ async function syncGoTeamsFromPC(
     .eq('id', userId)
 }
 
+async function mirrorProgressFromPC(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  userId: string,
+  pcPersonId: string
+) {
+  const progress = await importPersonProgress(pcPersonId)
+  if (!progress.imported) throw new Error('Unable to import Planning Center progress')
+
+  const [{ data: discSteps }, { data: leadSteps }] = await Promise.all([
+    supabase.from('discipleship_steps').select('id, name'),
+    supabase.from('leadership_steps').select('id, name, level_name'),
+  ])
+
+  const completedDiscipleshipNames = new Set(
+    progress.completedDiscipleship.map(name => name.toLowerCase())
+  )
+  const completedLeadershipNames = new Set(
+    progress.completedLeadership.map(name => name.toLowerCase())
+  )
+
+  const discInserts = (discSteps ?? [])
+    .filter(step => completedDiscipleshipNames.has(step.name.toLowerCase()))
+    .map(step => ({
+      user_id: userId,
+      step_id: step.id,
+      completion_source: 'pc_synced' as const,
+      completed_at: new Date().toISOString(),
+    }))
+
+  const leadInserts = (leadSteps ?? [])
+    .filter(step => completedLeadershipNames.has(`${step.level_name}: ${step.name}`.toLowerCase()))
+    .map(step => ({
+      user_id: userId,
+      step_id: step.id,
+      completion_source: 'pc_synced' as const,
+      completed_at: new Date().toISOString(),
+    }))
+
+  await Promise.all([
+    supabase.from('member_discipleship_progress').delete().eq('user_id', userId),
+    supabase.from('member_leadership_progress').delete().eq('user_id', userId),
+  ])
+
+  if (discInserts.length > 0) {
+    await supabase
+      .from('member_discipleship_progress')
+      .insert(discInserts)
+  }
+
+  if (leadInserts.length > 0) {
+    await supabase
+      .from('member_leadership_progress')
+      .insert(leadInserts)
+  }
+
+}
+
 export async function linkMemberToPC(userId: string, pcPersonId: string) {
   const supabase = await createClient()
 
@@ -136,39 +192,8 @@ export async function refreshMemberFromPC(memberId: string) {
 
   const pcPersonId = profile.planning_center_id
 
-  const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+  await mirrorProgressFromPC(supabase, memberId, pcPersonId)
   await syncGoTeamsFromPC(supabase, memberId, pcPersonId)
-
-  if (completedDiscipleship.length > 0) {
-    const { data: discSteps } = await supabase.from('discipleship_steps').select('id, name')
-    const discInserts = (discSteps ?? [])
-      .filter(s => completedDiscipleship.some(n => n.toLowerCase() === s.name.toLowerCase()))
-      .map(s => ({ user_id: memberId, step_id: s.id, completion_source: 'pc_synced' as const }))
-
-    if (discInserts.length > 0) {
-      await supabase
-        .from('member_discipleship_progress')
-        .upsert(discInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
-
-      for (const s of discInserts) {
-        const name = (discSteps ?? []).find(d => d.id === s.step_id)?.name ?? ''
-        await autoMarkGoTeamLeadership(supabase, memberId, name, 'pc_synced')
-      }
-    }
-  }
-
-  if (completedLeadership.length > 0) {
-    const { data: leadSteps } = await supabase.from('leadership_steps').select('id, name, level_name')
-    const leadInserts = (leadSteps ?? [])
-      .filter(s => completedLeadership.some(n => n.toLowerCase() === `${s.level_name}: ${s.name}`.toLowerCase()))
-      .map(s => ({ user_id: memberId, step_id: s.id, completion_source: 'pc_synced' as const }))
-
-    if (leadInserts.length > 0) {
-      await supabase
-        .from('member_leadership_progress')
-        .upsert(leadInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
-    }
-  }
 
   const baptismDate = await importBaptismFromPC(pcPersonId)
   if (baptismDate) {
@@ -197,39 +222,8 @@ export async function refreshOwnProfileFromPC() {
 
   const pcPersonId = profile.planning_center_id
 
-  const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+  await mirrorProgressFromPC(supabase, user.id, pcPersonId)
   await syncGoTeamsFromPC(supabase, user.id, pcPersonId)
-
-  if (completedDiscipleship.length > 0) {
-    const { data: discSteps } = await supabase.from('discipleship_steps').select('id, name')
-    const discInserts = (discSteps ?? [])
-      .filter(s => completedDiscipleship.some(n => n.toLowerCase() === s.name.toLowerCase()))
-      .map(s => ({ user_id: user.id, step_id: s.id, completion_source: 'pc_synced' as const }))
-
-    if (discInserts.length > 0) {
-      await supabase
-        .from('member_discipleship_progress')
-        .upsert(discInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
-
-      for (const s of discInserts) {
-        const name = (discSteps ?? []).find(d => d.id === s.step_id)?.name ?? ''
-        await autoMarkGoTeamLeadership(supabase, user.id, name, 'pc_synced')
-      }
-    }
-  }
-
-  if (completedLeadership.length > 0) {
-    const { data: leadSteps } = await supabase.from('leadership_steps').select('id, name, level_name')
-    const leadInserts = (leadSteps ?? [])
-      .filter(s => completedLeadership.some(n => n.toLowerCase() === `${s.level_name}: ${s.name}`.toLowerCase()))
-      .map(s => ({ user_id: user.id, step_id: s.id, completion_source: 'pc_synced' as const }))
-
-    if (leadInserts.length > 0) {
-      await supabase
-        .from('member_leadership_progress')
-        .upsert(leadInserts, { onConflict: 'user_id,step_id', ignoreDuplicates: true })
-    }
-  }
 
   const baptismDate = await importBaptismFromPC(pcPersonId)
   if (baptismDate) {
@@ -251,58 +245,8 @@ export async function linkAndImportPcProfile(userId: string, pcPersonId: string)
     .eq('id', userId)
 
   // Pull their existing workflow progress from PC
-  const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+  await mirrorProgressFromPC(supabase, userId, pcPersonId)
   await syncGoTeamsFromPC(supabase, userId, pcPersonId)
-
-  if (completedDiscipleship.length > 0) {
-    // Match PC step names to our step IDs
-    const { data: discSteps } = await supabase
-      .from('discipleship_steps')
-      .select('id, name')
-
-    const discInserts = (discSteps ?? [])
-      .filter(s => completedDiscipleship.some(
-        n => n.toLowerCase() === s.name.toLowerCase()
-      ))
-      .map(s => ({
-        user_id: userId,
-        step_id: s.id,
-        completion_source: 'pc_synced' as const,
-      }))
-
-    if (discInserts.length > 0) {
-      await supabase
-        .from('member_discipleship_progress')
-        .upsert(discInserts, { onConflict: 'user_id,step_id' })
-
-      for (const s of discInserts) {
-        const name = (discSteps ?? []).find(d => d.id === s.step_id)?.name ?? ''
-        await autoMarkGoTeamLeadership(supabase, userId, name, 'pc_synced')
-      }
-    }
-  }
-
-  if (completedLeadership.length > 0) {
-    const { data: leadSteps } = await supabase
-      .from('leadership_steps')
-      .select('id, name, level_name')
-
-    const leadInserts = (leadSteps ?? [])
-      .filter(s => completedLeadership.some(
-        n => n.toLowerCase() === `${s.level_name}: ${s.name}`.toLowerCase()
-      ))
-      .map(s => ({
-        user_id: userId,
-        step_id: s.id,
-        completion_source: 'pc_synced' as const,
-      }))
-
-    if (leadInserts.length > 0) {
-      await supabase
-        .from('member_leadership_progress')
-        .upsert(leadInserts, { onConflict: 'user_id,step_id' })
-    }
-  }
 
   // Import baptism date from PC if set
   const baptismDate = await importBaptismFromPC(pcPersonId)
