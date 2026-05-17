@@ -2,9 +2,16 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import StaffHeader from './components/StaffHeader'
 import MemberList, { MemberRow } from './components/MemberList'
+import type { StaffMemberListDefaults } from '@/app/actions/staff'
 import LeadershipRequests, { LeadershipRequest } from './components/LeadershipRequests'
 import { Users, CheckCircle2, BookOpen, Flame, Settings, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
+
+const DEFAULT_MEMBER_LIST_OPTIONS: StaffMemberListDefaults = {
+  sortBy: 'name',
+  teamFilter: '__all__',
+  tagFilter: '__all__',
+}
 
 function readStringArray(profile: object, key: string) {
   if (!(key in profile)) return []
@@ -47,6 +54,22 @@ export default async function StaffPage() {
     .select('full_name')
     .eq('id', user.id)
     .single()
+
+  const { data: memberListPreferences } = staffRole.role === 'admin'
+    ? await supabase
+        .from('staff_member_list_preferences')
+        .select('sort_by, team_filter, tag_filter')
+        .eq('user_id', user.id)
+        .maybeSingle()
+    : { data: null }
+
+  const memberListDefaults: StaffMemberListDefaults = {
+    sortBy: memberListPreferences?.sort_by === 'added_desc' || memberListPreferences?.sort_by === 'added_asc'
+      ? memberListPreferences.sort_by
+      : DEFAULT_MEMBER_LIST_OPTIONS.sortBy,
+    teamFilter: memberListPreferences?.team_filter || DEFAULT_MEMBER_LIST_OPTIONS.teamFilter,
+    tagFilter: memberListPreferences?.tag_filter || DEFAULT_MEMBER_LIST_OPTIONS.tagFilter,
+  }
 
   const profileFields = 'id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status'
   const profilesResult = await supabase
@@ -234,7 +257,12 @@ export default async function StaffPage() {
         {/* Member list */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 mb-3">All Members</h2>
-          <MemberList members={memberRows} canRemove={staffRole.role === 'admin'} />
+          <MemberList
+            members={memberRows}
+            canRemove={staffRole.role === 'admin'}
+            canSaveDefaults={staffRole.role === 'admin'}
+            initialDefaults={memberListDefaults}
+          />
         </div>
       </main>
     </div>

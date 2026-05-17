@@ -7,6 +7,17 @@ import { syncStepCompletionToPC, unsyncStepFromPC } from '@/lib/planning-center'
 
 // When "Join the Go Team" is completed on discipleship, auto-mark the matching leadership step
 const GO_TEAM_DISC_NAME = 'Join the Go Team'
+const MEMBER_LIST_SORT_OPTIONS = ['name', 'added_desc', 'added_asc'] as const
+const ALL_MEMBER_LIST_TEAMS = '__all__'
+const ALL_MEMBER_LIST_TAGS = '__all__'
+
+export type StaffMemberListSort = (typeof MEMBER_LIST_SORT_OPTIONS)[number]
+
+export interface StaffMemberListDefaults {
+  sortBy: StaffMemberListSort
+  teamFilter: string
+  tagFilter: string
+}
 
 export async function autoMarkGoTeamLeadership(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -71,6 +82,35 @@ export async function makeMemberAdmin(memberId: string) {
 
   revalidatePath('/staff')
   revalidatePath(`/staff/members/${memberId}`)
+}
+
+export async function saveStaffMemberListDefaults(defaults: StaffMemberListDefaults) {
+  const { supabase, staffUserId } = await requireAdmin()
+
+  if (!MEMBER_LIST_SORT_OPTIONS.includes(defaults.sortBy)) {
+    throw new Error('Invalid sort option.')
+  }
+
+  const teamFilter = defaults.teamFilter.trim()
+  const tagFilter = defaults.tagFilter.trim()
+
+  if (!teamFilter || !tagFilter) {
+    throw new Error('Invalid filter option.')
+  }
+
+  const { error } = await supabase
+    .from('staff_member_list_preferences')
+    .upsert({
+      user_id: staffUserId,
+      sort_by: defaults.sortBy,
+      team_filter: teamFilter || ALL_MEMBER_LIST_TEAMS,
+      tag_filter: tagFilter || ALL_MEMBER_LIST_TAGS,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+
+  if (error) throw new Error(`Failed to save defaults: ${error.message}`)
+
+  revalidatePath('/staff')
 }
 
 async function requireEditor() {

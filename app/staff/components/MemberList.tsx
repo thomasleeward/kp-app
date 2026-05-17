@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { deleteMemberProfile } from '@/app/actions/staff'
-import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp, Filter, Trash2 } from 'lucide-react'
+import { deleteMemberProfile, saveStaffMemberListDefaults, type StaffMemberListDefaults } from '@/app/actions/staff'
+import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp, Filter, Trash2, Save } from 'lucide-react'
 
 export interface MemberRow {
   id: string
@@ -22,24 +22,47 @@ export interface MemberRow {
   tags: string[]
 }
 
-type SortOption = 'name' | 'added_desc' | 'added_asc'
+type SortOption = StaffMemberListDefaults['sortBy']
 const ALL_TEAMS = '__all__'
 const ALL_TAGS = '__all__'
+const DEFAULT_LIST_OPTIONS: StaffMemberListDefaults = {
+  sortBy: 'name',
+  teamFilter: ALL_TEAMS,
+  tagFilter: ALL_TAGS,
+}
 
-export default function MemberList({ members, canRemove = false }: { members: MemberRow[]; canRemove?: boolean }) {
+export default function MemberList({
+  members,
+  canRemove = false,
+  canSaveDefaults = false,
+  initialDefaults = DEFAULT_LIST_OPTIONS,
+}: {
+  members: MemberRow[]
+  canRemove?: boolean
+  canSaveDefaults?: boolean
+  initialDefaults?: StaffMemberListDefaults
+}) {
   const [query, setQuery] = useState('')
-  const [sortBy, setSortBy] = useState<SortOption>('name')
-  const [teamFilter, setTeamFilter] = useState(ALL_TEAMS)
-  const [tagFilter, setTagFilter] = useState(ALL_TAGS)
+  const [sortBy, setSortBy] = useState<SortOption>(initialDefaults.sortBy)
+  const [teamFilter, setTeamFilter] = useState(initialDefaults.teamFilter)
+  const [tagFilter, setTagFilter] = useState(initialDefaults.tagFilter)
   const [memberToRemove, setMemberToRemove] = useState<MemberRow | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [savingDefaults, startSavingDefaults] = useTransition()
   const router = useRouter()
 
   const teams = [...new Set(members.flatMap(m => m.goTeams))]
     .sort((a, b) => a.localeCompare(b))
   const tags = [...new Set(members.flatMap(m => m.tags))]
     .sort((a, b) => a.localeCompare(b))
+
+  function resetSaveStatus() {
+    setSaved(false)
+    setSaveError(null)
+  }
 
   const dateValue = (date: string | null) => {
     if (!date) return 0
@@ -100,6 +123,21 @@ export default function MemberList({ members, canRemove = false }: { members: Me
     }
   }
 
+  function handleSaveDefaults() {
+    setSaveError(null)
+    setSaved(false)
+
+    startSavingDefaults(async () => {
+      try {
+        await saveStaffMemberListDefaults({ sortBy, teamFilter, tagFilter })
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : 'Unable to save defaults.')
+      }
+    })
+  }
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100">
@@ -118,7 +156,10 @@ export default function MemberList({ members, canRemove = false }: { members: Me
             <ArrowDownUp size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
             <select
               value={sortBy}
-              onChange={e => setSortBy(e.target.value as SortOption)}
+              onChange={e => {
+                setSortBy(e.target.value as SortOption)
+                resetSaveStatus()
+              }}
               aria-label="Sort members"
               className="w-full appearance-none pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600"
             >
@@ -128,16 +169,22 @@ export default function MemberList({ members, canRemove = false }: { members: Me
             </select>
             <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
           </div>
-          {teams.length > 0 && (
+          {(teams.length > 0 || teamFilter !== ALL_TEAMS) && (
             <div className="relative sm:w-52">
               <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
               <select
                 value={teamFilter}
-                onChange={e => setTeamFilter(e.target.value)}
+                onChange={e => {
+                  setTeamFilter(e.target.value)
+                  resetSaveStatus()
+                }}
                 aria-label="Filter by Go Team"
                 className="w-full appearance-none pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600"
               >
                 <option value={ALL_TEAMS}>All Go Teams</option>
+                {teamFilter !== ALL_TEAMS && !teams.includes(teamFilter) && (
+                  <option value={teamFilter}>{teamFilter} (saved)</option>
+                )}
                 {teams.map(team => (
                   <option key={team} value={team}>{team}</option>
                 ))}
@@ -145,21 +192,45 @@ export default function MemberList({ members, canRemove = false }: { members: Me
               <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
             </div>
           )}
-          {tags.length > 0 && (
+          {(tags.length > 0 || tagFilter !== ALL_TAGS) && (
             <div className="relative sm:w-44">
               <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
               <select
                 value={tagFilter}
-                onChange={e => setTagFilter(e.target.value)}
+                onChange={e => {
+                  setTagFilter(e.target.value)
+                  resetSaveStatus()
+                }}
                 aria-label="Filter by tag"
                 className="w-full appearance-none pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600"
               >
                 <option value={ALL_TAGS}>All Tags</option>
+                {tagFilter !== ALL_TAGS && !tags.includes(tagFilter) && (
+                  <option value={tagFilter}>{tagFilter} (saved)</option>
+                )}
                 {tags.map(tag => (
                   <option key={tag} value={tag}>{tag}</option>
                 ))}
               </select>
               <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
+            </div>
+          )}
+          {canSaveDefaults && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveDefaults}
+                disabled={savingDefaults}
+                title="Save current sort and filters as default"
+                aria-label="Save current sort and filters as default"
+                className="h-9 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              >
+                <Save size={15} />
+                <span>Save defaults</span>
+              </button>
+              <span aria-live="polite" className={`text-xs ${saveError ? 'text-red-600' : 'text-green-600'}`}>
+                {savingDefaults ? 'Saving...' : saveError ?? (saved ? 'Saved' : '')}
+              </span>
             </div>
           )}
         </div>
