@@ -48,6 +48,20 @@ function readStringArray(profile: object, key: string) {
     : []
 }
 
+async function readOptionalProfileColumn(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  memberId: string,
+  key: 'go_teams' | 'tags'
+) {
+  const { data } = await supabase
+    .from('profiles')
+    .select(`id, ${key}`)
+    .eq('id', memberId)
+    .single()
+
+  return data ? { [key]: (data as Record<string, unknown>)[key] } : {}
+}
+
 export default async function MemberDetailPage({
   params,
 }: {
@@ -72,19 +86,16 @@ export default async function MemberDetailPage({
   }
 
   const memberFields = 'id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date'
-  const memberWithCustomFields = await supabase
+  const memberResult = await supabase
     .from('profiles')
-    .select(`${memberFields}, go_teams, tags`)
+    .select(memberFields)
     .eq('id', memberId)
     .single()
 
-  const memberResult = memberWithCustomFields.error
-    ? await supabase
-        .from('profiles')
-        .select(memberFields)
-        .eq('id', memberId)
-        .single()
-    : memberWithCustomFields
+  const [goTeamsColumn, tagsColumn] = await Promise.all([
+    readOptionalProfileColumn(supabase, memberId, 'go_teams'),
+    readOptionalProfileColumn(supabase, memberId, 'tags'),
+  ])
 
   const [
     { data: memberStaffRole },
@@ -100,7 +111,9 @@ export default async function MemberDetailPage({
     getLeadershipProgress(memberId),
   ])
 
-  const { data: member } = memberResult
+  const member = memberResult.data
+    ? { ...memberResult.data, ...goTeamsColumn, ...tagsColumn }
+    : null
 
   // Collect all staff IDs who confirmed steps so we can show their names
   const completedByIds = [

@@ -15,6 +15,21 @@ function readStringArray(profile: object, key: string) {
     : []
 }
 
+function mergeStringArrayColumn<T extends { id: string }>(
+  profiles: T[],
+  rows: Array<{ id: string } & Record<string, unknown>> | null,
+  key: string
+) {
+  if (!rows) return profiles
+
+  const valuesById = new Map(rows.map(row => [row.id, row[key]]))
+
+  return profiles.map(profile => ({
+    ...profile,
+    [key]: valuesById.get(profile.id),
+  }))
+}
+
 export default async function StaffPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,17 +49,15 @@ export default async function StaffPage() {
     .single()
 
   const profileFields = 'id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status'
-  const profilesWithCustomFields = await supabase
+  const profilesResult = await supabase
     .from('profiles')
-    .select(`${profileFields}, go_teams, tags`)
+    .select(profileFields)
     .order('full_name')
 
-  const profilesResult = profilesWithCustomFields.error
-    ? await supabase
-        .from('profiles')
-        .select(profileFields)
-        .order('full_name')
-    : profilesWithCustomFields
+  const [{ data: goTeamRows }, { data: tagRows }] = await Promise.all([
+    supabase.from('profiles').select('id, go_teams').order('full_name'),
+    supabase.from('profiles').select('id, tags').order('full_name'),
+  ])
 
   // Fetch all data in parallel
   const [
@@ -61,7 +74,12 @@ export default async function StaffPage() {
       .select('user_id, step_id'),
   ])
 
-  const allProfiles = profilesResult.data ?? []
+  const baseProfiles = profilesResult.data ?? []
+  const allProfiles = mergeStringArrayColumn(
+    mergeStringArrayColumn(baseProfiles, goTeamRows, 'go_teams'),
+    tagRows,
+    'tags'
+  )
   const allSteps = discSteps ?? []
   const allProgress = discProgress ?? []
   const lifeGroupStepId = allSteps.find(s => s.name === 'Join a Life Group')?.id
