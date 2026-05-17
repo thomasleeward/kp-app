@@ -108,9 +108,14 @@ export interface PcProgressImport {
 const DISC_FIELD_ID = '1033964'
 const LEAD_FIELD_ID = '1034012'
 const GO_TEAMS_FIELD_ID = process.env.PLANNING_CENTER_GO_TEAMS_FIELD_ID
+const TAGS_FIELD_ID = process.env.PLANNING_CENTER_TAGS_FIELD_ID
 
 export function isGoTeamsSyncConfigured() {
   return !!GO_TEAMS_FIELD_ID
+}
+
+export function isTagsSyncConfigured() {
+  return !!TAGS_FIELD_ID
 }
 
 const DISC_OPTIONS: Record<string, OptionMap> = {
@@ -346,11 +351,63 @@ export async function importGoTeamsFromPC(pcPersonId: string): Promise<string[]>
   if (!GO_TEAMS_FIELD_ID) return []
 
   const data = await getFieldData(pcPersonId, GO_TEAMS_FIELD_ID)
-  return [...new Set(
-    data
-      .map(d => d.value.trim())
-      .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b))
+  return normalizeValues(data.map(d => d.value))
+}
+
+export async function importTagsFromPC(pcPersonId: string): Promise<string[]> {
+  if (!TAGS_FIELD_ID) return []
+
+  const data = await getFieldData(pcPersonId, TAGS_FIELD_ID)
+  return normalizeValues(data.map(d => d.value))
+}
+
+function normalizeTag(tag: string) {
+  return tag.trim().replace(/\s+/g, ' ')
+}
+
+function normalizeValues(values: string[]) {
+  const seen = new Map<string, string>()
+
+  for (const value of values) {
+    const normalized = normalizeTag(value)
+    if (!normalized) continue
+    seen.set(normalized.toLowerCase(), normalized)
+  }
+
+  return [...seen.values()].sort((a, b) => a.localeCompare(b))
+}
+
+export async function syncTagToPC(pcPersonId: string, tag: string) {
+  if (!TAGS_FIELD_ID) throw new Error('Planning Center tags field is not configured')
+
+  const normalized = normalizeTag(tag)
+  if (!normalized) throw new Error('Tag is required')
+
+  const existing = await getFieldData(pcPersonId, TAGS_FIELD_ID)
+  if (existing.some(d => d.value.trim().toLowerCase() === normalized.toLowerCase())) return
+
+  await pcPost(`/people/${pcPersonId}/field_data`, {
+    data: {
+      type: 'FieldDatum',
+      attributes: { value: normalized },
+      relationships: {
+        field_definition: { data: { type: 'FieldDefinition', id: TAGS_FIELD_ID } },
+      },
+    },
+  })
+}
+
+export async function unsyncTagFromPC(pcPersonId: string, tag: string) {
+  if (!TAGS_FIELD_ID) throw new Error('Planning Center tags field is not configured')
+
+  const normalized = normalizeTag(tag)
+  if (!normalized) return
+
+  const existing = await getFieldData(pcPersonId, TAGS_FIELD_ID)
+  const datum = existing.find(d => d.value.trim().toLowerCase() === normalized.toLowerCase())
+  if (!datum) return
+
+  await pcDelete(`/people/${pcPersonId}/field_data/${datum.datumId}`)
 }
 
 // ─── Write-back: check / uncheck a step in the PC custom field ────────────────

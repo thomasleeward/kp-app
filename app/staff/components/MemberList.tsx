@@ -17,17 +17,22 @@ export interface MemberRow {
   baptized: boolean
   pcLinked: boolean
   goTeams: string[]
+  tags: string[]
 }
 
 type SortOption = 'name' | 'added_desc' | 'added_asc'
 const ALL_TEAMS = '__all__'
+const ALL_TAGS = '__all__'
 
 export default function MemberList({ members }: { members: MemberRow[] }) {
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('name')
   const [teamFilter, setTeamFilter] = useState(ALL_TEAMS)
+  const [tagFilter, setTagFilter] = useState(ALL_TAGS)
 
   const teams = [...new Set(members.flatMap(m => m.goTeams))]
+    .sort((a, b) => a.localeCompare(b))
+  const tags = [...new Set(members.flatMap(m => m.tags))]
     .sort((a, b) => a.localeCompare(b))
 
   const dateValue = (date: string | null) => {
@@ -45,8 +50,9 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
     )
 
     const matchesTeam = teamFilter === ALL_TEAMS || m.goTeams.includes(teamFilter)
+    const matchesTag = tagFilter === ALL_TAGS || m.tags.includes(tagFilter)
 
-    return matchesText && matchesTeam
+    return matchesText && matchesTeam && matchesTag
   })
 
   const sorted = [...filtered].sort((a, b) => {
@@ -116,6 +122,23 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
               <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
             </div>
           )}
+          {tags.length > 0 && (
+            <div className="relative sm:w-44">
+              <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+              <select
+                value={tagFilter}
+                onChange={e => setTagFilter(e.target.value)}
+                aria-label="Filter by tag"
+                className="w-full appearance-none pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600"
+              >
+                <option value={ALL_TAGS}>All Tags</option>
+                {tags.map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+              <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -169,6 +192,14 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
                   ))}
                   {member.goTeams.length > 3 && (
                     <span className="text-xs text-gray-400">+{member.goTeams.length - 3}</span>
+                  )}
+                  {member.tags.slice(0, 3).map(tag => (
+                    <span key={tag} className="text-xs text-indigo-700 bg-indigo-50 ring-1 ring-indigo-100 px-2 py-0.5 rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                  {member.tags.length > 3 && (
+                    <span className="text-xs text-gray-400">+{member.tags.length - 3}</span>
                   )}
                 </div>
               </div>

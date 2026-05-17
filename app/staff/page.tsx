@@ -6,11 +6,12 @@ import LeadershipRequests, { LeadershipRequest } from './components/LeadershipRe
 import { Users, CheckCircle2, BookOpen, Flame, Settings, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
-function readGoTeams(profile: object) {
-  if (!('go_teams' in profile)) return []
+function readStringArray(profile: object, key: string) {
+  if (!(key in profile)) return []
 
-  return Array.isArray(profile.go_teams)
-    ? profile.go_teams.filter((team): team is string => typeof team === 'string' && team.length > 0)
+  const value = (profile as Record<string, unknown>)[key]
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
     : []
 }
 
@@ -33,17 +34,17 @@ export default async function StaffPage() {
     .single()
 
   const profileFields = 'id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status'
-  const profilesWithTeams = await supabase
+  const profilesWithCustomFields = await supabase
     .from('profiles')
-    .select(`${profileFields}, go_teams`)
+    .select(`${profileFields}, go_teams, tags`)
     .order('full_name')
 
-  const profilesResult = profilesWithTeams.error
+  const profilesResult = profilesWithCustomFields.error
     ? await supabase
         .from('profiles')
         .select(profileFields)
         .order('full_name')
-    : profilesWithTeams
+    : profilesWithCustomFields
 
   // Fetch all data in parallel
   const [
@@ -117,7 +118,8 @@ export default async function StaffPage() {
       inLifeGroup: lifeGroupStepId ? completedSet.has(lifeGroupStepId) : false,
       baptized: !!profile.baptism_date,
       pcLinked: profile.pc_link_status === 'linked',
-      goTeams: readGoTeams(profile),
+      goTeams: readStringArray(profile, 'go_teams'),
+      tags: readStringArray(profile, 'tags'),
     }
   })
 

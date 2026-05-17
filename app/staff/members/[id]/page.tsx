@@ -9,10 +9,11 @@ import DeleteMemberButton from './components/DeleteMemberButton'
 import MakeAdminButton from './components/MakeAdminButton'
 import LinkToPcModal from './components/LinkToPcModal'
 import RefreshFromPCButton from './components/RefreshFromPCButton'
+import TagEditor from './components/TagEditor'
 import { refreshMemberFromPC } from '@/app/actions/pc'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
-  Mail, Phone, User, Droplets, ShieldCheck, Users
+  Mail, Phone, User, Droplets, ShieldCheck, Users, Tag
 } from 'lucide-react'
 
 const STAGE_ORDER = ['identification', 'instruction', 'impartation', 'internship']
@@ -38,11 +39,12 @@ function sourceBadgeLabel(source: string, completedBy: string | null | undefined
   return source
 }
 
-function readGoTeams(profile: object) {
-  if (!('go_teams' in profile)) return []
+function readStringArray(profile: object, key: string) {
+  if (!(key in profile)) return []
 
-  return Array.isArray(profile.go_teams)
-    ? profile.go_teams.filter((team): team is string => typeof team === 'string' && team.length > 0)
+  const value = (profile as Record<string, unknown>)[key]
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
     : []
 }
 
@@ -70,19 +72,19 @@ export default async function MemberDetailPage({
   }
 
   const memberFields = 'id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date'
-  const memberWithTeams = await supabase
+  const memberWithCustomFields = await supabase
     .from('profiles')
-    .select(`${memberFields}, go_teams`)
+    .select(`${memberFields}, go_teams, tags`)
     .eq('id', memberId)
     .single()
 
-  const memberResult = memberWithTeams.error
+  const memberResult = memberWithCustomFields.error
     ? await supabase
         .from('profiles')
         .select(memberFields)
         .eq('id', memberId)
         .single()
-    : memberWithTeams
+    : memberWithCustomFields
 
   const [
     { data: memberStaffRole },
@@ -122,7 +124,8 @@ export default async function MemberDetailPage({
 
   const canEdit = staffRole.role === 'editor' || staffRole.role === 'admin'
   const discCompleted = discProgress.filter(s => s.completion).length
-  const goTeams = readGoTeams(member)
+  const goTeams = readStringArray(member, 'go_teams')
+  const tags = readStringArray(member, 'tags')
 
   // Group discipleship steps by phase
   const phases = discProgress.reduce<Record<number, { name: string; steps: typeof discProgress }>>(
@@ -212,6 +215,18 @@ export default async function MemberDetailPage({
                     </div>
                   </div>
                 )}
+                {tags.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm text-gray-500">
+                    <Tag size={13} className="text-gray-300 mt-1" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {tags.map(tag => (
+                        <span key={tag} className="text-xs text-indigo-700 bg-indigo-50 ring-1 ring-indigo-100 px-2 py-0.5 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -227,6 +242,10 @@ export default async function MemberDetailPage({
             </div>
           </div>
         </div>
+
+        {canEdit && member.pc_link_status === 'linked' && (
+          <TagEditor memberId={member.id} tags={tags} />
+        )}
 
         {/* Discipleship Path */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

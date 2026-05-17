@@ -3,7 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   searchPeopleByEmail, searchPeopleByName, createPcPerson,
-  importPersonProgress, importBaptismFromPC, importGoTeamsFromPC, isGoTeamsSyncConfigured,
+  importPersonProgress, importBaptismFromPC, importGoTeamsFromPC, importTagsFromPC,
+  isGoTeamsSyncConfigured, isTagsSyncConfigured, syncTagToPC, unsyncTagFromPC,
   syncStepCompletionToPC, syncBaptismToPC,
 } from '@/lib/planning-center'
 import { revalidatePath } from 'next/cache'
@@ -76,6 +77,47 @@ async function syncGoTeamsFromPC(
     .eq('id', userId)
 }
 
+async function syncTagsFromPC(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  userId: string,
+  pcPersonId: string
+) {
+  if (!isTagsSyncConfigured()) return
+
+  const tags = await importTagsFromPC(pcPersonId)
+
+  await supabase
+    .from('profiles')
+    .update({ tags })
+    .eq('id', userId)
+}
+
+async function requireEditorForMember(memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: staffRole } = await supabase
+    .from('staff_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!staffRole || staffRole.role === 'viewer') {
+    throw new Error('Insufficient permissions')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('planning_center_id')
+    .eq('id', memberId)
+    .single()
+
+  if (!profile?.planning_center_id) throw new Error('Member is not linked to Planning Center')
+
+  return { supabase, pcPersonId: profile.planning_center_id }
+}
+
 async function mirrorProgressFromPC(
   supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
   userId: string,
@@ -143,6 +185,7 @@ export async function linkMemberToPC(userId: string, pcPersonId: string) {
 
   await pushProgressToPC(supabase, userId, pcPersonId)
   await syncGoTeamsFromPC(supabase, userId, pcPersonId)
+  await syncTagsFromPC(supabase, userId, pcPersonId)
 
   revalidatePath(`/staff/members/${userId}`)
   revalidatePath('/staff')
@@ -168,6 +211,7 @@ export async function createAndLinkPcProfile(userId: string) {
 
   await pushProgressToPC(supabase, userId, pcPersonId)
   await syncGoTeamsFromPC(supabase, userId, pcPersonId)
+  await syncTagsFromPC(supabase, userId, pcPersonId)
 
   revalidatePath(`/staff/members/${userId}`)
   revalidatePath('/staff')
@@ -194,6 +238,7 @@ export async function refreshMemberFromPC(memberId: string) {
 
   await mirrorProgressFromPC(supabase, memberId, pcPersonId)
   await syncGoTeamsFromPC(supabase, memberId, pcPersonId)
+  await syncTagsFromPC(supabase, memberId, pcPersonId)
 
   const baptismDate = await importBaptismFromPC(pcPersonId)
   if (baptismDate) {
@@ -224,6 +269,7 @@ export async function refreshOwnProfileFromPC() {
 
   await mirrorProgressFromPC(supabase, user.id, pcPersonId)
   await syncGoTeamsFromPC(supabase, user.id, pcPersonId)
+  await syncTagsFromPC(supabase, user.id, pcPersonId)
 
   const baptismDate = await importBaptismFromPC(pcPersonId)
   if (baptismDate) {
@@ -247,6 +293,7 @@ export async function linkAndImportPcProfile(userId: string, pcPersonId: string)
   // Pull their existing workflow progress from PC
   await mirrorProgressFromPC(supabase, userId, pcPersonId)
   await syncGoTeamsFromPC(supabase, userId, pcPersonId)
+  await syncTagsFromPC(supabase, userId, pcPersonId)
 
   // Import baptism date from PC if set
   const baptismDate = await importBaptismFromPC(pcPersonId)
@@ -258,4 +305,24 @@ export async function linkAndImportPcProfile(userId: string, pcPersonId: string)
   }
 
   revalidatePath('/dashboard')
+}
+
+export async function addMemberTag(memberId: string, tag: string) {
+  const { supabase, pcPersonId } = await requireEditorForMember(memberId)
+
+  await syncTagToPC(pcPersonId, tag)
+  await syncTagsFromPC(supabase, memberId, pcPersonId)
+
+  revalidatePath(`/staff/members/${memberId}`)
+  revalidatePath('/staff')
+}
+
+export async function removeMemberTag(memberId: string, tag: string) {
+  const { supabase, pcPersonId } = await requireEditorForMember(memberId)
+
+  await unsyncTagFromPC(pcPersonId, tag)
+  await syncTagsFromPC(supabase, memberId, pcPersonId)
+
+  revalidatePath(`/staff/members/${memberId}`)
+  revalidatePath('/staff')
 }

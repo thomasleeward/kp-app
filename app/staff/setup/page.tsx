@@ -56,7 +56,7 @@ export default async function SetupPage() {
     <div className="p-8 max-w-3xl mx-auto">
       <h1 className="text-xl font-bold mb-2">PC Field Definitions</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Find your Discipleship Path, Leadership Track, and Go Teams fields below and note the Field ID and Option IDs.
+        Find your Discipleship Path, Leadership Track, Go Teams, and Tags fields below and note the Field ID and Option IDs.
       </p>
 
       <div className="space-y-6">
