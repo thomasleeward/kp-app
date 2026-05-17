@@ -48,7 +48,7 @@ async function requireAdmin() {
 
   if (staffRole?.role !== 'admin') throw new Error('Admin only')
 
-  return { supabase }
+  return { supabase, staffUserId: user.id }
 }
 
 export async function makeMemberAdmin(memberId: string) {
@@ -251,7 +251,12 @@ export async function unmarkDiscipleshipStep(memberId: string, stepId: string) {
 }
 
 export async function deleteMemberProfile(memberId: string) {
-  await requireAdmin()
+  const { staffUserId } = await requireAdmin()
+  if (memberId === staffUserId) throw new Error('You cannot remove your own account.')
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY. Add it to the server environment to remove members.')
+  }
 
   const adminClient = createAdminClient()
   const { error } = await adminClient.auth.admin.deleteUser(memberId)

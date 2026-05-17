@@ -234,7 +234,7 @@ export default async function StaffPage() {
         {/* Member list */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 mb-3">All Members</h2>
-          <MemberList members={memberRows} />
+          <MemberList members={memberRows} canRemove={staffRole.role === 'admin'} />
         </div>
       </main>
     </div>

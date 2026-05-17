@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp, Filter } from 'lucide-react'
+import { deleteMemberProfile } from '@/app/actions/staff'
+import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp, Filter, Trash2 } from 'lucide-react'
 
 export interface MemberRow {
   id: string
@@ -24,11 +26,15 @@ type SortOption = 'name' | 'added_desc' | 'added_asc'
 const ALL_TEAMS = '__all__'
 const ALL_TAGS = '__all__'
 
-export default function MemberList({ members }: { members: MemberRow[] }) {
+export default function MemberList({ members, canRemove = false }: { members: MemberRow[]; canRemove?: boolean }) {
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('name')
   const [teamFilter, setTeamFilter] = useState(ALL_TEAMS)
   const [tagFilter, setTagFilter] = useState(ALL_TAGS)
+  const [memberToRemove, setMemberToRemove] = useState<MemberRow | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const router = useRouter()
 
   const teams = [...new Set(members.flatMap(m => m.goTeams))]
     .sort((a, b) => a.localeCompare(b))
@@ -75,6 +81,23 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
     if (Number.isNaN(parsed.getTime())) return 'Date unavailable'
 
     return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  async function handleRemove() {
+    if (!memberToRemove) return
+
+    setRemoving(true)
+    setRemoveError(null)
+
+    try {
+      await deleteMemberProfile(memberToRemove.id)
+      setMemberToRemove(null)
+      router.refresh()
+    } catch (e) {
+      setRemoveError(e instanceof Error ? e.message : 'Unable to remove member.')
+    } finally {
+      setRemoving(false)
+    }
   }
 
   return (
@@ -149,12 +172,11 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
       ) : (
         <div className="divide-y divide-gray-50">
           {sorted.map(member => (
-            <Link
+            <div
               key={member.id}
-              href={`/staff/members/${member.id}`}
-              className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors group"
+              className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors group"
             >
-              <div className="flex-1 min-w-0">
+              <Link href={`/staff/members/${member.id}`} className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-gray-900">{member.full_name}</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${leadershipBadge[member.leadershipStatus].className}`}>
@@ -202,9 +224,22 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
                     <span className="text-xs text-gray-400">+{member.tags.length - 3}</span>
                   )}
                 </div>
-              </div>
-              <ChevronRight size={15} className="text-gray-300 group-hover:text-gray-500 transition-colors shrink-0 ml-2" />
-            </Link>
+              </Link>
+              {canRemove && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemberToRemove(member)
+                    setRemoveError(null)
+                  }}
+                  aria-label={`Remove ${member.full_name}`}
+                  className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+              <ChevronRight size={15} className="text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
+            </div>
           ))}
         </div>
       )}
@@ -214,6 +249,41 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
           {sorted.length} of {members.length} member{members.length !== 1 ? 's' : ''}
         </p>
       </div>
+
+      {memberToRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 w-full max-w-sm">
+            <h2 className="font-semibold text-gray-900 mb-1">Remove member?</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              This will permanently delete <span className="font-medium text-gray-700">{memberToRemove.full_name}</span>&apos;s
+              account and all their progress data. This cannot be undone.
+            </p>
+            {removeError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-4">
+                {removeError}
+              </p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setMemberToRemove(null)}
+                disabled={removing}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={removing}
+                className="px-4 py-2 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-xl disabled:opacity-50 transition-colors"
+              >
+                {removing ? 'Removing...' : 'Yes, remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
