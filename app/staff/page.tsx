@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import StaffHeader from './components/StaffHeader'
 import MemberList, { MemberRow } from './components/MemberList'
 import LeadershipRequests, { LeadershipRequest } from './components/LeadershipRequests'
-import { Users, CheckCircle2, BookOpen, Flame, Settings } from 'lucide-react'
+import { Users, CheckCircle2, BookOpen, Flame, Settings, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function StaffPage() {
@@ -32,7 +32,7 @@ export default async function StaffPage() {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status')
+      .select('id, full_name, email, created_at, leadership_interest_at, leadership_track_unlocked, baptism_date, pc_link_status, go_teams')
       .order('full_name'),
     supabase
       .from('discipleship_steps')
@@ -101,6 +101,7 @@ export default async function StaffPage() {
       inLifeGroup: lifeGroupStepId ? completedSet.has(lifeGroupStepId) : false,
       baptized: !!profile.baptism_date,
       pcLinked: profile.pc_link_status === 'linked',
+      goTeams: Array.isArray(profile.go_teams) ? profile.go_teams.filter(Boolean) : [],
     }
   })
 
@@ -135,13 +136,22 @@ export default async function StaffPage() {
             <p className="text-white/40 text-sm mt-0.5">Manage members and track progress</p>
           </div>
           {staffRole.role === 'admin' && (
-            <Link
-              href="/staff/steps"
-              className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors"
-            >
-              <Settings size={14} />
-              Step Actions
-            </Link>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link
+                href="/staff/setup"
+                className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors"
+              >
+                <SlidersHorizontal size={14} />
+                PC Setup
+              </Link>
+              <Link
+                href="/staff/steps"
+                className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors"
+              >
+                <Settings size={14} />
+                Step Actions
+              </Link>
+            </div>
           )}
         </div>
       </div>

@@ -3,11 +3,23 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   searchPeopleByEmail, searchPeopleByName, createPcPerson,
-  importPersonProgress, importBaptismFromPC,
+  importPersonProgress, importBaptismFromPC, importGoTeamsFromPC, isGoTeamsSyncConfigured,
   syncStepCompletionToPC, syncBaptismToPC,
 } from '@/lib/planning-center'
 import { autoMarkGoTeamLeadership } from './staff'
 import { revalidatePath } from 'next/cache'
+
+interface DiscipleshipProgressRow {
+  discipleship_steps?: { name?: string } | { name?: string }[] | null
+}
+
+interface LeadershipProgressRow {
+  leadership_steps?: { name?: string; level_name?: string } | { name?: string; level_name?: string }[] | null
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null
+}
 
 export async function searchPcByEmail(email: string): Promise<import('@/lib/planning-center').PcPerson[]> {
   return await searchPeopleByEmail(email)
@@ -31,15 +43,15 @@ async function pushProgressToPC(supabase: Awaited<ReturnType<typeof import('@/li
     supabase.from('profiles').select('baptism_date').eq('id', userId).single(),
   ])
 
-  for (const row of discProgress ?? []) {
-    const name = (row.discipleship_steps as any)?.name
+  for (const row of (discProgress ?? []) as DiscipleshipProgressRow[]) {
+    const name = firstRelation(row.discipleship_steps)?.name
     if (name) {
       try { await syncStepCompletionToPC(pcPersonId, name, 'discipleship') } catch {}
     }
   }
 
-  for (const row of leadProgress ?? []) {
-    const step = row.leadership_steps as any
+  for (const row of (leadProgress ?? []) as LeadershipProgressRow[]) {
+    const step = firstRelation(row.leadership_steps)
     if (step?.name && step?.level_name) {
       try { await syncStepCompletionToPC(pcPersonId, `${step.level_name}: ${step.name}`, 'leadership') } catch {}
     }
@@ -48,6 +60,21 @@ async function pushProgressToPC(supabase: Awaited<ReturnType<typeof import('@/li
   if (profile?.baptism_date) {
     try { await syncBaptismToPC(pcPersonId, profile.baptism_date) } catch {}
   }
+}
+
+async function syncGoTeamsFromPC(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  userId: string,
+  pcPersonId: string
+) {
+  if (!isGoTeamsSyncConfigured()) return
+
+  const goTeams = await importGoTeamsFromPC(pcPersonId)
+
+  await supabase
+    .from('profiles')
+    .update({ go_teams: goTeams })
+    .eq('id', userId)
 }
 
 export async function linkMemberToPC(userId: string, pcPersonId: string) {
@@ -59,6 +86,7 @@ export async function linkMemberToPC(userId: string, pcPersonId: string) {
     .eq('id', userId)
 
   await pushProgressToPC(supabase, userId, pcPersonId)
+  await syncGoTeamsFromPC(supabase, userId, pcPersonId)
 
   revalidatePath(`/staff/members/${userId}`)
   revalidatePath('/staff')
@@ -83,6 +111,7 @@ export async function createAndLinkPcProfile(userId: string) {
     .eq('id', userId)
 
   await pushProgressToPC(supabase, userId, pcPersonId)
+  await syncGoTeamsFromPC(supabase, userId, pcPersonId)
 
   revalidatePath(`/staff/members/${userId}`)
   revalidatePath('/staff')
@@ -108,6 +137,7 @@ export async function refreshMemberFromPC(memberId: string) {
   const pcPersonId = profile.planning_center_id
 
   const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+  await syncGoTeamsFromPC(supabase, memberId, pcPersonId)
 
   if (completedDiscipleship.length > 0) {
     const { data: discSteps } = await supabase.from('discipleship_steps').select('id, name')
@@ -168,6 +198,7 @@ export async function refreshOwnProfileFromPC() {
   const pcPersonId = profile.planning_center_id
 
   const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+  await syncGoTeamsFromPC(supabase, user.id, pcPersonId)
 
   if (completedDiscipleship.length > 0) {
     const { data: discSteps } = await supabase.from('discipleship_steps').select('id, name')
@@ -221,6 +252,7 @@ export async function linkAndImportPcProfile(userId: string, pcPersonId: string)
 
   // Pull their existing workflow progress from PC
   const { completedDiscipleship, completedLeadership } = await importPersonProgress(pcPersonId)
+  await syncGoTeamsFromPC(supabase, userId, pcPersonId)
 
   if (completedDiscipleship.length > 0) {
     // Match PC step names to our step IDs

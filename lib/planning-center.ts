@@ -52,6 +52,44 @@ export interface PcPerson {
   email: string | null
 }
 
+interface PcRelationshipRef {
+  id: string
+  type?: string
+}
+
+interface PcEmailResource {
+  id: string
+  type: string
+  attributes: {
+    address?: string
+    primary?: boolean
+  }
+}
+
+interface PcPersonResource {
+  id: string
+  attributes: {
+    name: string
+  }
+  relationships?: {
+    emails?: {
+      data?: PcRelationshipRef[]
+    }
+  }
+}
+
+interface PcFieldDatumResource {
+  id: string
+  attributes?: {
+    value?: string
+  }
+  relationships?: {
+    field_definition?: {
+      data?: PcRelationshipRef
+    }
+  }
+}
+
 // ─── Option mappings ──────────────────────────────────────────────────────────
 // pcLabel: exact text stored as value in PC FieldDatum (must match PC option label)
 // dbName:  matches discipleship_steps.name or "${level_name}: ${name}" in DB
@@ -63,6 +101,11 @@ interface OptionMap {
 
 const DISC_FIELD_ID = '1033964'
 const LEAD_FIELD_ID = '1034012'
+const GO_TEAMS_FIELD_ID = process.env.PLANNING_CENTER_GO_TEAMS_FIELD_ID
+
+export function isGoTeamsSyncConfigured() {
+  return !!GO_TEAMS_FIELD_ID
+}
 
 const DISC_OPTIONS: Record<string, OptionMap> = {
   '10623307': { pcLabel: 'Attended Sunday Service',    dbName: 'Attend Sunday Service' },
@@ -113,15 +156,16 @@ export async function searchPeopleByName(name: string): Promise<PcPerson[]> {
     )
     if (!data.data?.length) return []
 
-    const included = data.included ?? []
+    const people = (data.data ?? []) as PcPersonResource[]
+    const included = (data.included ?? []) as PcEmailResource[]
 
-    return data.data.map((person: any) => {
-      const emailIds: string[] = (person.relationships?.emails?.data ?? []).map((e: any) => e.id)
+    return people.map(person => {
+      const emailIds = (person.relationships?.emails?.data ?? []).map(e => e.id)
       const emailItems = included.filter(
-        (i: any) => i.type === 'Email' && emailIds.includes(i.id)
+        i => i.type === 'Email' && emailIds.includes(i.id)
       )
       const primaryEmail =
-        emailItems.find((e: any) => e.attributes.primary)?.attributes?.address ??
+        emailItems.find(e => e.attributes.primary)?.attributes?.address ??
         emailItems[0]?.attributes?.address ??
         null
       return { id: person.id, name: person.attributes.name, email: primaryEmail }
@@ -137,7 +181,7 @@ export async function createPcPerson(fullName: string, email: string | null): Pr
   const firstName = nameParts[0]
   const lastName = nameParts.slice(1).join(' ') || ''
 
-  const body: any = {
+  const body = {
     data: {
       type: 'Person',
       attributes: { first_name: firstName, last_name: lastName },
@@ -167,15 +211,16 @@ export async function searchPeopleByEmail(email: string): Promise<PcPerson[]> {
     )
     if (!data.data?.length) return []
 
-    const included = data.included ?? []
+    const people = (data.data ?? []) as PcPersonResource[]
+    const included = (data.included ?? []) as PcEmailResource[]
 
-    return data.data.map((person: any) => {
-      const emailIds: string[] = (person.relationships?.emails?.data ?? []).map((e: any) => e.id)
+    return people.map(person => {
+      const emailIds = (person.relationships?.emails?.data ?? []).map(e => e.id)
       const emailItems = included.filter(
-        (i: any) => i.type === 'Email' && emailIds.includes(i.id)
+        i => i.type === 'Email' && emailIds.includes(i.id)
       )
       const primaryEmail =
-        emailItems.find((e: any) => e.attributes.primary)?.attributes?.address ??
+        emailItems.find(e => e.attributes.primary)?.attributes?.address ??
         emailItems[0]?.attributes?.address ??
         null
       return { id: person.id, name: person.attributes.name, email: primaryEmail }
@@ -193,8 +238,8 @@ const BAPTISM_DATE_FIELD_ID = '325111'
 
 async function setFieldValue(personId: string, fieldDefinitionId: string, value: string) {
   const data = await pcGet(`/people/${personId}/field_data`)
-  const existing = (data.data ?? []).find(
-    (fd: any) => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
+  const existing = ((data.data ?? []) as PcFieldDatumResource[]).find(
+    fd => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
   )
   if (existing) {
     await pcPatch(`/people/${personId}/field_data/${existing.id}`, {
@@ -223,7 +268,7 @@ export async function syncBaptismToPC(pcPersonId: string, date: string) {
 export async function importBaptismFromPC(pcPersonId: string): Promise<string | null> {
   try {
     const data = await pcGet(`/people/${pcPersonId}/field_data`)
-    const fields: any[] = data.data ?? []
+    const fields = (data.data ?? []) as PcFieldDatumResource[]
 
     const baptizedField = fields.find(
       fd => fd.relationships?.field_definition?.data?.id === BAPTISM_BOOLEAN_FIELD_ID
@@ -249,11 +294,11 @@ async function getFieldData(
 ): Promise<Array<{ datumId: string; value: string }>> {
   try {
     const data = await pcGet(`/people/${personId}/field_data`)
-    return (data.data ?? [])
+    return ((data.data ?? []) as PcFieldDatumResource[])
       .filter(
-        (fd: any) => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
+        fd => fd.relationships?.field_definition?.data?.id === fieldDefinitionId
       )
-      .map((fd: any) => ({ datumId: fd.id, value: fd.attributes?.value ?? '' }))
+      .map(fd => ({ datumId: fd.id, value: fd.attributes?.value ?? '' }))
   } catch {
     return []
   }
@@ -286,6 +331,17 @@ export async function importPersonProgress(pcPersonId: string): Promise<{
     console.error('[PC] Import error:', e)
     return { completedDiscipleship: [], completedLeadership: [] }
   }
+}
+
+export async function importGoTeamsFromPC(pcPersonId: string): Promise<string[]> {
+  if (!GO_TEAMS_FIELD_ID) return []
+
+  const data = await getFieldData(pcPersonId, GO_TEAMS_FIELD_ID)
+  return [...new Set(
+    data
+      .map(d => d.value.trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b))
 }
 
 // ─── Write-back: check / uncheck a step in the PC custom field ────────────────

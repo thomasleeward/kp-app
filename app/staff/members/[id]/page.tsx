@@ -12,7 +12,7 @@ import RefreshFromPCButton from './components/RefreshFromPCButton'
 import { refreshMemberFromPC } from '@/app/actions/pc'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
-  Mail, Phone, User, Droplets, ShieldCheck
+  Mail, Phone, User, Droplets, ShieldCheck, Users
 } from 'lucide-react'
 
 const STAGE_ORDER = ['identification', 'instruction', 'impartation', 'internship']
@@ -69,7 +69,7 @@ export default async function MemberDetailPage({
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date')
+      .select('id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date, go_teams')
       .eq('id', memberId)
       .single(),
     supabase
@@ -103,6 +103,7 @@ export default async function MemberDetailPage({
 
   const canEdit = staffRole.role === 'editor' || staffRole.role === 'admin'
   const discCompleted = discProgress.filter(s => s.completion).length
+  const goTeams = Array.isArray(member.go_teams) ? member.go_teams.filter(Boolean) : []
 
   // Group discipleship steps by phase
   const phases = discProgress.reduce<Record<number, { name: string; steps: typeof discProgress }>>(
@@ -178,6 +179,18 @@ export default async function MemberDetailPage({
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Droplets size={13} className="text-gray-300" />
                     Baptized {new Date(member.baptism_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </div>
+                )}
+                {goTeams.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm text-gray-500">
+                    <Users size={13} className="text-gray-300 mt-1" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {goTeams.map(team => (
+                        <span key={team} className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {team}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

@@ -1,6 +1,32 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
+interface PcRelationshipRef {
+  id: string
+}
+
+interface PcFieldDefinition {
+  id: string
+  attributes: {
+    name: string
+    data_type: string
+    tab_id?: string | null
+  }
+  relationships?: {
+    field_options?: {
+      data?: PcRelationshipRef[]
+    }
+  }
+}
+
+interface PcFieldOption {
+  id: string
+  type: string
+  attributes: {
+    value: string
+  }
+}
+
 async function getPcFieldDefinitions() {
   const credentials = Buffer.from(
     `${process.env.PLANNING_CENTER_APP_ID}:${process.env.PLANNING_CENTER_SECRET}`
@@ -23,20 +49,20 @@ export default async function SetupPage() {
   if (staffRole?.role !== 'admin') redirect('/staff')
 
   const data = await getPcFieldDefinitions()
-  const fields = data.data ?? []
-  const included = data.included ?? []
+  const fields = (data.data ?? []) as PcFieldDefinition[]
+  const included = (data.included ?? []) as PcFieldOption[]
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <h1 className="text-xl font-bold mb-2">PC Field Definitions</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Find your Discipleship Path and Leadership Track fields below and note the Field ID and Option IDs.
+        Find your Discipleship Path, Leadership Track, and Go Teams fields below and note the Field ID and Option IDs.
       </p>
 
       <div className="space-y-6">
-        {fields.map((field: any) => {
-          const optionIds = (field.relationships?.field_options?.data ?? []).map((o: any) => o.id)
-          const options = included.filter((i: any) => i.type === 'FieldOption' && optionIds.includes(i.id))
+        {fields.map(field => {
+          const optionIds = (field.relationships?.field_options?.data ?? []).map(o => o.id)
+          const options = included.filter(i => i.type === 'FieldOption' && optionIds.includes(i.id))
 
           return (
             <div key={field.id} className="bg-white border border-gray-200 rounded-xl p-4">
@@ -50,7 +76,7 @@ export default async function SetupPage() {
 
               {options.length > 0 && (
                 <div className="mt-3 space-y-1.5">
-                  {options.map((opt: any) => (
+                  {options.map(opt => (
                     <div key={opt.id} className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">{opt.attributes.value}</span>
                       <code className="text-xs bg-gray-50 px-2 py-0.5 rounded font-mono text-gray-500">{opt.id}</code>

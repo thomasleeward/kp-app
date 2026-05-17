@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp } from 'lucide-react'
+import { Search, ChevronRight, Droplets, Users, Link2, Link2Off, CalendarPlus, ArrowDownUp, Filter } from 'lucide-react'
 
 export interface MemberRow {
   id: string
@@ -16,13 +16,19 @@ export interface MemberRow {
   inLifeGroup: boolean
   baptized: boolean
   pcLinked: boolean
+  goTeams: string[]
 }
 
 type SortOption = 'name' | 'added_desc' | 'added_asc'
+const ALL_TEAMS = '__all__'
 
 export default function MemberList({ members }: { members: MemberRow[] }) {
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('name')
+  const [teamFilter, setTeamFilter] = useState(ALL_TEAMS)
+
+  const teams = [...new Set(members.flatMap(m => m.goTeams))]
+    .sort((a, b) => a.localeCompare(b))
 
   const dateValue = (date: string | null) => {
     if (!date) return 0
@@ -33,10 +39,14 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
 
   const filtered = members.filter(m => {
     const q = query.toLowerCase()
-    return (
+    const matchesText = (
       m.full_name.toLowerCase().includes(q) ||
       (m.email ?? '').toLowerCase().includes(q)
     )
+
+    const matchesTeam = teamFilter === ALL_TEAMS || m.goTeams.includes(teamFilter)
+
+    return matchesText && matchesTeam
   })
 
   const sorted = [...filtered].sort((a, b) => {
@@ -89,6 +99,23 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
             </select>
             <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
           </div>
+          {teams.length > 0 && (
+            <div className="relative sm:w-52">
+              <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+              <select
+                value={teamFilter}
+                onChange={e => setTeamFilter(e.target.value)}
+                aria-label="Filter by Go Team"
+                className="w-full appearance-none pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600"
+              >
+                <option value={ALL_TEAMS}>All Go Teams</option>
+                {teams.map(team => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
+              </select>
+              <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -135,6 +162,14 @@ export default function MemberList({ members }: { members: MemberRow[] }) {
                     {member.pcLinked ? <Link2 size={11} /> : <Link2Off size={11} />}
                     PC
                   </span>
+                  {member.goTeams.slice(0, 3).map(team => (
+                    <span key={team} className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {team}
+                    </span>
+                  ))}
+                  {member.goTeams.length > 3 && (
+                    <span className="text-xs text-gray-400">+{member.goTeams.length - 3}</span>
+                  )}
                 </div>
               </div>
               <ChevronRight size={15} className="text-gray-300 group-hover:text-gray-500 transition-colors shrink-0 ml-2" />
