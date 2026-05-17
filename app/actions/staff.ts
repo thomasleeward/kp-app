@@ -51,6 +51,28 @@ async function requireAdmin() {
   return { supabase }
 }
 
+export async function makeMemberAdmin(memberId: string) {
+  const { supabase } = await requireAdmin()
+
+  const { data: member } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', memberId)
+    .single()
+
+  if (!member) throw new Error('Member not found')
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('staff_roles')
+    .upsert({ user_id: memberId, role: 'admin' }, { onConflict: 'user_id' })
+
+  if (error) throw new Error(`Failed to make member admin: ${error.message}`)
+
+  revalidatePath('/staff')
+  revalidatePath(`/staff/members/${memberId}`)
+}
+
 async function requireEditor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -6,12 +6,13 @@ import MarkCompleteButton from './components/MarkCompleteButton'
 import UnmarkButton from './components/UnmarkButton'
 import UnlockButton from './components/UnlockButton'
 import DeleteMemberButton from './components/DeleteMemberButton'
+import MakeAdminButton from './components/MakeAdminButton'
 import LinkToPcModal from './components/LinkToPcModal'
 import RefreshFromPCButton from './components/RefreshFromPCButton'
 import { refreshMemberFromPC } from '@/app/actions/pc'
 import {
   CheckCircle2, Circle, Lock, AlertTriangle, UserCheck,
-  Mail, Phone, User, Droplets
+  Mail, Phone, User, Droplets, ShieldCheck
 } from 'lucide-react'
 
 const STAGE_ORDER = ['identification', 'instruction', 'impartation', 'internship']
@@ -62,6 +63,7 @@ export default async function MemberDetailPage({
 
   const [
     { data: member },
+    { data: memberStaffRole },
     discProgress,
     leadProgress,
   ] = await Promise.all([
@@ -70,6 +72,11 @@ export default async function MemberDetailPage({
       .select('id, full_name, email, phone, leadership_interest_at, leadership_track_unlocked, pc_link_status, created_at, baptism_date')
       .eq('id', memberId)
       .single(),
+    supabase
+      .from('staff_roles')
+      .select('role')
+      .eq('user_id', memberId)
+      .maybeSingle(),
     getDiscipleshipProgress(memberId),
     getLeadershipProgress(memberId),
   ])
@@ -132,7 +139,7 @@ export default async function MemberDetailPage({
             <div className="flex items-center gap-3">
               <AlertTriangle size={16} className="text-amber-500 shrink-0" />
               <p className="text-sm text-amber-700">
-                Not linked to Planning Center — progress won't sync automatically.
+                Not linked to Planning Center — progress won&apos;t sync automatically.
               </p>
             </div>
             <LinkToPcModal memberId={member.id} memberName={member.full_name} memberEmail={member.email} />
@@ -327,6 +334,30 @@ export default async function MemberDetailPage({
             })}
           </div>
         </div>
+        {/* Staff access */}
+        {staffRole.role === 'admin' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                <ShieldCheck size={16} className="text-slate-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900">Staff Access</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Current role: <span className="font-medium capitalize text-gray-700">{memberStaffRole?.role ?? 'member'}</span>
+                </p>
+              </div>
+            </div>
+            {memberStaffRole?.role === 'admin' ? (
+              <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 ring-1 ring-green-200 self-start sm:self-auto">
+                Admin
+              </span>
+            ) : (
+              <MakeAdminButton memberId={member.id} memberName={member.full_name} />
+            )}
+          </div>
+        )}
+
         {/* Danger zone */}
         {staffRole.role === 'admin' && (
           <div className="flex justify-end pt-2 pb-4">
