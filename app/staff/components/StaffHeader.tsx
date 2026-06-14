@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { LogOut, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Props {
   name: string
@@ -35,10 +36,8 @@ export default function StaffHeader({ name, role, backHref, backLabel }: Props) 
             </Link>
           ) : (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
-                <span className="text-white text-xs font-bold tracking-tight">KP</span>
-              </div>
-              <span className="font-semibold text-white/90 text-sm">Staff</span>
+              <Image src="/kp-app-icon-white.png" alt="Discipleship Path" width={32} height={32} className="rounded-xl" />
+              <span className="font-semibold text-white/90 text-sm">Discipleship Path</span>
             </div>
           )}
         </div>

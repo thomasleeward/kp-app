@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default async function Home() {
   const supabase = await createClient()
@@ -25,10 +26,8 @@ export default async function Home() {
 
         {/* Top mark */}
         <div className="flex items-center gap-2 self-start">
-          <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-            <span className="text-white font-bold text-sm">KP</span>
-          </div>
-          <span className="text-white/60 text-sm font-medium">King's Park</span>
+          <Image src="/kp-app-icon-white.png" alt="Discipleship Path" width={32} height={32} className="rounded-xl" />
+          <span className="text-white/60 text-sm font-medium">Discipleship Path</span>
         </div>
 
         {/* Hero */}

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { LogOut } from 'lucide-react'
+import Image from 'next/image'
 
 export default function Header({ name }: { name: string }) {
   const router = useRouter()
@@ -17,10 +18,8 @@ export default function Header({ name }: { name: string }) {
     <header className="sticky top-0 z-40 bg-gradient-to-r from-slate-900 to-blue-950 border-b border-white/10">
       <div className="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
-            <span className="text-white text-xs font-bold tracking-tight">KP</span>
-          </div>
-          <span className="font-semibold text-white/90 text-sm">Discipleship</span>
+          <Image src="/kp-app-icon-white.png" alt="Discipleship Path" width={32} height={32} className="rounded-xl" />
+          <span className="font-semibold text-white/90 text-sm">Discipleship Path</span>
         </div>
         <div className="flex items-center gap-3">
           {name && (
